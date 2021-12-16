@@ -119,7 +119,7 @@ def to_brewtils(
         from beer_garden.db.schemas.garden_schema import GardenSchema
 
         schema = GardenSchema(strict=True)
-        serialized = schema.dumps(obj).data
+        serialized = schema.dumps(obj, many=many).data
         parsed = schema.loads(serialized, many=many).data
     else:
         serialized = MongoParser.serialize(obj, to_string=True)

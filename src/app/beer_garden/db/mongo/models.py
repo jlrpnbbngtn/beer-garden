@@ -52,7 +52,6 @@ from mongoengine import (
     UUIDField,
     ValidationError,
 )
-from mongoengine.errors import FieldDoesNotExist
 from mongoengine.errors import ValidationError as MongoengineValidationError
 
 from .fields import DummyField, StatusInfo
@@ -732,58 +731,12 @@ class Job(MongoModel, Document):
             )
 
 
-class HttpConnectionParameters(EmbeddedDocument):
-    host = StringField(required=True)
-    port = IntField(min_value=1024, max_value=65535, required=True)
-    url_prefix = StringField(default="/")
-    ca_cert = StringField(required=False)
-    ca_verify = BooleanField(required=True)
-    client_cert = StringField(required=False)
-    client_key = StringField(required=False)
-    ssl = BooleanField(required=True)
-
-
-class StompSSLParameters(EmbeddedDocument):
-    use_ssl = BooleanField(required=True)
-
-
-class StompHeader(EmbeddedDocument):
-    key = StringField(required=True)
-    value = StringField(required=True)
-
-
-class StompConnectionParameters(EmbeddedDocument):
-    ssl = EmbeddedDocumentField(StompSSLParameters, required=True)
-    headers = ListField(EmbeddedDocumentField(StompHeader), required=False)
-    host = StringField(required=True)
-    port = IntField(min_value=1024, max_value=65535, required=True)
-    send_destination = StringField(required=False)
-    subscribe_destination = StringField(required=False)
-    username = StringField(require=False)
-    password = StringField(required=False)
-
-
-class GardenConnectionParams(EmbeddedDocument):
-    http = EmbeddedDocumentField(HttpConnectionParameters, required=False)
-    stomp = EmbeddedDocumentField(StompConnectionParameters, required=False)
-
-
-class ConnectionGenericEmbeddedDocumentField(GenericEmbeddedDocumentField):
-    def to_python(self, value):
-        if value == {} or value is None:
-            return None
-        if "http" in value or "stomp" in value:
-            value.update({"_cls": "GardenConnectionParams"})
-        try:
-            return super().to_python(value)
-        except (FieldDoesNotExist, KeyError) as err:
-            # catches the cases where the dict isn't empty and both 'http' and 'stomp'
-            # are absent or there are additional spurious keys present
-            raise ValidationError(f"Found bad key in connection parameters: {str(err)}")
-
-
-class EmptyConnectionParams(EmbeddedDocument):
-    pass
+def validate_garden_connection_params(dict_field):
+    """Use the marshmallow schema to validate Garden connection parameters."""
+    try:
+        GardenConnectionsParamsSchema(strict=True).validate(dict(dict_field))
+    except MarshmallowValidationError as mmve:
+        raise MongoengineValidationError(mmve.messages)
 
 
 class Garden(MongoModel, Document):
@@ -794,10 +747,7 @@ class Garden(MongoModel, Document):
     status_info = EmbeddedDocumentField("StatusInfo", default=StatusInfo())
     namespaces = ListField()
     connection_type = StringField()
-    # connection_params = ConnectionGenericEmbeddedDocumentField(
-    #     choices=(GardenConnectionParams, EmptyConnectionParams), required=False
-    # )
-    connection_params = DictField()
+    connection_params = DictField(validation=validate_garden_connection_params)
     systems = ListField(ReferenceField(System, reverse_delete_rule=PULL))
 
     meta = {
@@ -813,24 +763,6 @@ class Garden(MongoModel, Document):
             },
         ],
     }
-
-    def clean(self):
-        try:
-            # use the marshmallow schema to validate the connection parameters
-            _ = GardenConnectionsParamsSchema(strict=True).load(
-                dict(self.connection_params)
-            )
-        except MarshmallowValidationError as mmve:
-            raise MongoengineValidationError(mmve.messages)
-
-    def save(self, *args, **kwargs):
-        """This exists so that it is never possible to call `save` on a Garden object
-        without validation of the connection parameters happening."""
-        kwargs.setdefault("write_concern", {"w": "majority"})  # as in `MongoModel`
-        kwargs["validate"] = True
-        kwargs["clean"] = True
-
-        return super().save(*args, **kwargs)
 
     def deep_save(self):
         if self.connection_type != "LOCAL":

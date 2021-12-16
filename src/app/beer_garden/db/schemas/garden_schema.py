@@ -16,12 +16,11 @@ class GardenBaseSchema(Schema):
     utilizing these would need to pull apart MarshalResult objects in order to return
     a meaningful error."""
 
-    @pre_load
-    @validates_schema(skip_on_field_errors=False)
-    def validate_all_keys(self, data, **kwargs):
-        # do not allow extraneous keys if working on a dictionary
-        if isinstance(data, dict):
-            extra_args = [key for key in data.keys() if key not in self.fields]
+    @validates_schema(skip_on_field_errors=False, pass_original=True)
+    def validate_all_keys(self, post_load_data, original_data, **kwargs):
+        # do not allow extraneous keys when operating on a dictionary
+        if isinstance(original_data, dict):
+            extra_args = original_data.keys() - post_load_data.keys()
 
             if len(extra_args) > 0:
                 formatted_good_keys = ", ".join(
@@ -34,12 +33,6 @@ class GardenBaseSchema(Schema):
                     f"Only {formatted_good_keys} allowed as keys; "
                     f"these are not allowed: {formatted_bad_keys}"
                 )
-
-    def dump(self, obj, many=None, update_fields=True, **kwargs):
-        if isinstance(obj, (list, QuerySet)):
-            many = True
-
-        return super().dump(obj, many=many, update_fields=update_fields, **kwargs)
 
 
 def _port_validator(value):
@@ -98,11 +91,17 @@ class GardenConnectionsParamsSchema(GardenBaseSchema):
 
 class GardenSchema(GardenBaseSchema):
     id = fields.Str(allow_none=True)
+    # TODO the name field must be allowed to be blank for child garden registration
     name = fields.Str(allow_none=False)
     status = fields.Str(allow_none=True)
     status_info = fields.Nested(StatusInfoSchema, allow_none=True)
     connection_type = fields.Str(allow_none=False)
-    connection_params = fields.Nested(GardenConnectionsParamsSchema, allow_none=True)
+    connection_params = fields.Nested(
+        "GardenConnectionsParamsSchema",
+        allow_none=True,
+        dump_default={},
+        load_default={},
+    )
     namespaces = fields.List(fields.Str(), allow_none=True)
     systems = fields.Nested(SystemSchema, many=True, allow_none=True)
 

@@ -2,6 +2,7 @@
 from brewtils.errors import ModelValidationError
 from brewtils.models import Operation
 from brewtils.schema_parser import SchemaParser
+from mongoengine.queryset.queryset import QuerySet
 
 from beer_garden.api.authorization import Permissions
 from beer_garden.api.http.handlers import AuthorizationHandler
@@ -154,9 +155,9 @@ class GardenListAPI(AuthorizationHandler):
         tags:
           - Garden
         """
-        permitted_gardens = self.permissioned_queryset(Garden, GARDEN_READ)
+        permitted_gardens: QuerySet = self.permissioned_queryset(Garden, GARDEN_READ)
 
-        response = GardenSchema(strict=True).dumps(permitted_gardens).data
+        response = GardenSchema(strict=True, many=True).dumps(permitted_gardens).data
 
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.write(response)

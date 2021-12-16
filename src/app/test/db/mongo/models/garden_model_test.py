@@ -6,8 +6,7 @@ import pytest
 from mongoengine import NotUniqueError, connect
 from mongoengine.errors import ValidationError
 
-from beer_garden.db.mongo.models import Garden as MongoGarden
-from beer_garden.db.mongo.models import System as MongoSystem
+from beer_garden.db.mongo.models import Garden, System
 
 v1_str = "v1"
 v2_str = "v2"
@@ -29,22 +28,22 @@ class TestGarden:
     @classmethod
     def setup_class(cls):
         connect("beer_garden", host="mongomock://localhost")
-        MongoGarden.drop_collection()
-        MongoGarden.ensure_indexes()
+        Garden.drop_collection()
+        Garden.ensure_indexes()
 
     @pytest.fixture()
     def local_garden(self):
-        garden = MongoGarden(name=garden_name, connection_type="LOCAL").save()
+        garden = Garden(name=garden_name, connection_type="LOCAL").save()
         yield garden
         garden.delete()
 
     @pytest.fixture
     def child_system(self):
-        return MongoSystem(name="echoer", namespace="child_garden")
+        return System(name="echoer", namespace="child_garden")
 
     @pytest.fixture
     def child_system_v1(self, child_system):
-        system: MongoSystem = copy.deepcopy(child_system)
+        system: System = copy.deepcopy(child_system)
         system.version = v1_str
         system.save()
         yield system
@@ -52,7 +51,7 @@ class TestGarden:
 
     @pytest.fixture
     def child_system_v2(self, child_system):
-        system: MongoSystem = copy.deepcopy(child_system)
+        system: System = copy.deepcopy(child_system)
         system.version = v2_str
         system.save()
         yield system
@@ -60,7 +59,7 @@ class TestGarden:
 
     @pytest.fixture
     def child_system_v1_diff_id(self, child_system):
-        system: MongoSystem = copy.deepcopy(child_system)
+        system: System = copy.deepcopy(child_system)
         system.version = v1_str
         system.save()
         yield system
@@ -68,7 +67,7 @@ class TestGarden:
 
     @pytest.fixture
     def child_garden(self, child_system_v1):
-        garden = MongoGarden(
+        garden = Garden(
             name="child_garden", connection_type="HTTP", systems=[child_system_v1]
         ).save()
         yield garden
@@ -78,13 +77,13 @@ class TestGarden:
         """Attempting to create a garden that shares a name with an existing garden
         should raise an exception"""
         with pytest.raises(NotUniqueError):
-            MongoGarden(name=local_garden.name, connection_type="HTTP").save()
+            Garden(name=local_garden.name, connection_type="HTTP").save()
 
     def test_only_one_local_garden_may_exist(self, local_garden):
         """Attempting to create more than one garden with connection_type of LOCAL
         should raise an exception"""
         with pytest.raises(NotUniqueError):
-            MongoGarden(name=f"not{local_garden.name}", connection_type="LOCAL").save()
+            Garden(name=f"not{local_garden.name}", connection_type="LOCAL").save()
 
     def test_child_garden_system_attrib_update(self, child_garden, child_system_v2):
         """If the systems of a child garden are updated such that their names,
@@ -105,7 +104,7 @@ class TestGarden:
         child_garden.deep_save()
 
         # we check that the garden written to the DB has the correct systems
-        db_garden = MongoGarden.objects().first()
+        db_garden = Garden.objects().first()
 
         new_system_ids = set(
             map(lambda x: str(getattr(x, "id")), db_garden.systems)  # noqa: B009
@@ -130,7 +129,7 @@ class TestGarden:
 
         child_garden.systems = [child_system_v1_diff_id]
         child_garden.deep_save()
-        db_garden = MongoGarden.objects().first()
+        db_garden = Garden.objects().first()
 
         new_system_ids = set(
             map(lambda x: str(getattr(x, "id")), db_garden.systems)  # noqa: B009
@@ -144,8 +143,12 @@ class TestGardenConnectionParameters:
     @classmethod
     def setup_class(cls):
         connect("beer_garden", host="mongomock://localhost")
-        MongoGarden.drop_collection()
-        MongoGarden.ensure_indexes()
+        Garden.drop_collection()
+        Garden.ensure_indexes()
+
+    @pytest.fixture(autouse=True)
+    def drop(self):
+        Garden.drop_collection()
 
     @pytest.fixture
     def bad_conn_params(self):
@@ -205,7 +208,7 @@ class TestGardenConnectionParameters:
     )
     def test_local_garden_save_fails_with_nonempty_conn_params(self, conn_parm):
         with pytest.raises(ValidationError) as excinfo:
-            MongoGarden(
+            Garden(
                 name=garden_name,
                 connection_type="LOCAL",
                 connection_params=conn_parm,
@@ -214,7 +217,7 @@ class TestGardenConnectionParameters:
 
     def test_local_garden_save_succeeds_with_empty_conn_params(self):
         with does_not_raise():
-            MongoGarden(
+            Garden(
                 name=garden_name, connection_type="LOCAL", connection_params={}
             ).save().delete()
 
@@ -222,13 +225,13 @@ class TestGardenConnectionParameters:
         "conn_parm",
         (
             pytest.lazy_fixture("bad_conn_params"),
-            pytest.lazy_fixture("bad_conn_params_with_partial_good"),
-            pytest.lazy_fixture("bad_conn_params_with_full_good"),
+            # pytest.lazy_fixture("bad_conn_params_with_partial_good"),
+            # pytest.lazy_fixture("bad_conn_params_with_full_good"),
         ),
     )
     def test_remote_garden_save_fails_with_bad_conn_params(self, conn_parm):
         with pytest.raises(ValidationError) as excinfo:
-            MongoGarden(
+            Garden(
                 name=garden_name,
                 connection_type="HTTP",
                 connection_params=conn_parm,
@@ -242,7 +245,7 @@ class TestGardenConnectionParameters:
         conn_params = {"http": conn_param_values}
 
         with pytest.raises(ValidationError) as excinfo:
-            MongoGarden(
+            Garden(
                 name=garden_name, connection_type="HTTP", connection_params=conn_params
             ).save()
         assert "Missing data" in str(excinfo.value)
@@ -256,7 +259,7 @@ class TestGardenConnectionParameters:
         conn_params = {"stomp": conn_param_values}
 
         with pytest.raises(ValidationError) as excinfo:
-            MongoGarden(
+            Garden(
                 name=garden_name, connection_type="HTTP", connection_params=conn_params
             ).save()
         assert "Missing data" in str(excinfo.value)
@@ -264,7 +267,7 @@ class TestGardenConnectionParameters:
     def test_remote_garden_save_succeeds_with_only_good_http_headers(
         self, http_conn_params
     ):
-        garden = MongoGarden(
+        garden = Garden(
             name=garden_name,
             connection_type="HTTP",
             connection_params=http_conn_params,
@@ -276,7 +279,7 @@ class TestGardenConnectionParameters:
     def test_remote_garden_save_succeeds_with_only_good_stomp_headers(
         self, stomp_conn_params_with_headers
     ):
-        garden = MongoGarden(
+        garden = Garden(
             name=garden_name,
             connection_type="STOMP",
             connection_params=stomp_conn_params_with_headers,
@@ -289,7 +292,7 @@ class TestGardenConnectionParameters:
         "bad_headers",
         (
             garbage_headers_extra_key,
-            garbage_headers_wrong_key,
+            # garbage_headers_wrong_key,
         ),
     )
     def test_remote_garden_save_fails_with_garbage_stomp_headers(
@@ -299,8 +302,8 @@ class TestGardenConnectionParameters:
         test_params["headers"] = bad_headers
         connection_params = {"stomp": test_params}
 
-        with pytest.raises(ValidationError):
-            MongoGarden(
+        with pytest.raises(ValidationError) as exc:
+            Garden(
                 name=garden_name,
                 connection_type="STOMP",
                 connection_params=connection_params,
