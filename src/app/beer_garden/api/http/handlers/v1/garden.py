@@ -2,11 +2,12 @@
 from brewtils.errors import ModelValidationError
 from brewtils.models import Operation
 from brewtils.schema_parser import SchemaParser
+from mongoengine.queryset.queryset import QuerySet
 
 from beer_garden.api.authorization import Permissions
 from beer_garden.api.http.handlers import AuthorizationHandler
-from beer_garden.db.mongo.api import MongoParser
 from beer_garden.db.mongo.models import Garden
+from beer_garden.db.schemas.garden_schema import GardenSchema
 from beer_garden.garden import local_garden
 
 GARDEN_CREATE = Permissions.GARDEN_CREATE.value
@@ -40,7 +41,7 @@ class GardenAPI(AuthorizationHandler):
         """
         garden = self.get_or_raise(Garden, GARDEN_READ, name=garden_name)
 
-        response = MongoParser.serialize(garden)
+        response = GardenSchema(strict=True).dumps(garden).data
 
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.write(response)
@@ -138,10 +139,12 @@ class GardenAPI(AuthorizationHandler):
                     )
                 )
             elif operation == "config":
+                garden_to_update = GardenSchema(strict=True).load(op.value).data
+                garden_to_update.id = garden.id
                 response = await self.client(
                     Operation(
                         operation_type="GARDEN_UPDATE_CONFIG",
-                        args=[SchemaParser.parse_garden(op.value, from_string=False)],
+                        args=[garden_to_update],
                     )
                 )
             elif operation == "sync":
@@ -178,9 +181,9 @@ class GardenListAPI(AuthorizationHandler):
         tags:
           - Garden
         """
-        permitted_gardens = self.permissioned_queryset(Garden, GARDEN_READ)
+        permitted_gardens: QuerySet = self.permissioned_queryset(Garden, GARDEN_READ)
 
-        response = MongoParser.serialize(permitted_gardens, to_string=True)
+        response = GardenSchema(strict=True, many=True).dumps(permitted_gardens).data
 
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.write(response)
@@ -207,7 +210,7 @@ class GardenListAPI(AuthorizationHandler):
         tags:
           - Garden
         """
-        garden = SchemaParser.parse_garden(self.request.decoded_body, from_string=True)
+        garden = GardenSchema(strict=True).loads(self.request.decoded_body).data
 
         self.verify_user_permission_for_object(GARDEN_CREATE, garden)
 
