@@ -4,8 +4,7 @@ from brewtils.models import Garden as BrewtilsGarden
 from brewtils.schemas import StatusInfoSchema  # noqa # until we can fully decouple
 from brewtils.schemas import SystemSchema  # noqa # until we can fully decouple
 from marshmallow import Schema, ValidationError, fields
-from marshmallow.decorators import post_load, pre_load, validates_schema
-from mongoengine.queryset.queryset import QuerySet
+from marshmallow.decorators import post_load, validates_schema
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +94,7 @@ class GardenSchema(GardenBaseSchema):
     name = fields.Str(allow_none=False)
     status = fields.Str(allow_none=True)
     status_info = fields.Nested(StatusInfoSchema, allow_none=True)
-    connection_type = fields.Str(allow_none=False)
+    connection_type = fields.Str(allow_none=True)
     connection_params = fields.Nested(
         "GardenConnectionsParamsSchema",
         allow_none=True,

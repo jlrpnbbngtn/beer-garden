@@ -186,29 +186,34 @@ def get_connection_defaults():
 
     # TODO: this is a temporary work-around until Brewtils is configured to provide
     # sensible defaults
+    bad_defaults = {"ssl_enabled", "ca_verify"}
     sensible_defaults = {
-        "bg_host": "somehostname",
+        "bg_host": "child_hostname",
         "bg_port": 1025,
         "ssl_enabled": False,
         "bg_url_prefix": "/",
-        "ca_cert": "none",
         "ca_verify": False,
-        "client_cert": "none",
-    }
-    # substitute the sensible default only if we're provided `None` or an empty string
-    defaults = {
-        key: (
-            defaults[key]
-            if (
-                (defaults[key] is not None and (isinstance(defaults[key], bool)))
-                or defaults[key]
-            )
-            else sensible_defaults[key]
-        )
-        for key in config_map
     }
 
-    return defaults
+    # substitute the sensible default only if we're provided `None` or an empty string
+    new_defaults = {}
+    for key in defaults:
+        # setting ssl and ca_verify to `True` by default makes no sense
+        if key in bad_defaults:
+            new_defaults[key] = sensible_defaults[key]
+        else:
+            provided = defaults[key]
+            if key in config_map:
+                if provided is not None and provided:
+                    # always use a string that is not empty
+                    new_defaults[key] = provided
+                else:
+                    # but use the empty string if we don't provide an alternative
+                    new_defaults[key] = (
+                        sensible_defaults[key] if key in sensible_defaults else ""
+                    )
+
+    return new_defaults
 
 
 @publish_event(Events.GARDEN_CREATED)
