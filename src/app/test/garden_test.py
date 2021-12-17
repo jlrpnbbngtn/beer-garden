@@ -10,6 +10,7 @@ from beer_garden import config
 from beer_garden.db.mongo.models import Garden, System
 from beer_garden.garden import (
     create_garden,
+    get_connection_defaults,
     get_garden,
     get_gardens,
     local_garden,
@@ -124,9 +125,8 @@ class TestGarden:
         # confirm that systems of other gardens remain intact
         assert len(System.objects.filter(namespace=localgarden.name)) == 1
 
-    def test_create_garden_loads_default_config(self, bg_garden):
+    def test_create_garden_loads_default_config(self, remotegarden):
         """create_garden should explicitly load default HTTP configs from brewtils"""
-
         http_params = {
             "host": "localhost",
             "port": 1337,
@@ -137,15 +137,15 @@ class TestGarden:
             "client_cert": "/def",
         }
 
-        bg_garden.connection_params = {"http": http_params}
+        remotegarden.connection_params = {"http": http_params}
 
-        garden = create_garden(bg_garden)
+        garden = create_garden(remotegarden)
         for key in http_params:
             assert garden.connection_params["http"][key] == http_params[key]
 
-    def test_create_garden_with_empty_connection_params(self, bg_garden):
-        """create_garden should explicitly load default HTTP configs from brewtils when empty"""
-
+    def test_create_garden_with_empty_connection_params(self, remotegarden):
+        """create_garden should explicitly load default HTTP configs from brewtils when
+        empty"""
         config_map = {
             "bg_host": "host",
             "bg_port": "port",
@@ -156,10 +156,8 @@ class TestGarden:
             "client_cert": "client_cert",
         }
 
-        spec = YapconfSpec(_CONNECTION_SPEC)
-        # bg_host is required by brewtils garden spec
-        defaults = spec.load_config({"bg_host": ""})
+        defaults = get_connection_defaults()
+        garden = create_garden(remotegarden)
 
-        garden = create_garden(bg_garden)
         for key in config_map:
             assert garden.connection_params["http"][config_map[key]] == defaults[key]
