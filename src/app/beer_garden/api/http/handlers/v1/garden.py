@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from brewtils.errors import ModelValidationError
-from brewtils.models import Operation
+from brewtils.models import Operation as BrewtilsOperation
 from brewtils.schema_parser import SchemaParser
 from mongoengine.queryset.queryset import QuerySet
 
@@ -9,6 +11,8 @@ from beer_garden.api.http.handlers import AuthorizationHandler
 from beer_garden.db.mongo.models import Garden
 from beer_garden.db.schemas.garden_schema import GardenSchema
 from beer_garden.garden import local_garden
+
+logger = logging.getLogger(__name__)
 
 GARDEN_CREATE = Permissions.GARDEN_CREATE.value
 GARDEN_READ = Permissions.GARDEN_READ.value
@@ -41,7 +45,7 @@ class GardenAPI(AuthorizationHandler):
         """
         garden = self.get_or_raise(Garden, GARDEN_READ, name=garden_name)
 
-        response = GardenSchema(strict=True).dumps(garden).data
+        response = self.format_response(GardenSchema, garden)
 
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.write(response)
@@ -68,7 +72,9 @@ class GardenAPI(AuthorizationHandler):
         """
         garden = self.get_or_raise(Garden, GARDEN_DELETE, name=garden_name)
 
-        await self.client(Operation(operation_type="GARDEN_DELETE", args=[garden.name]))
+        await self.client(
+            BrewtilsOperation(operation_type="GARDEN_DELETE", args=[garden.name])
+        )
 
         self.set_status(204)
 
@@ -126,30 +132,35 @@ class GardenAPI(AuthorizationHandler):
 
             if operation in ["initializing", "running", "stopped", "block"]:
                 response = await self.client(
-                    Operation(
+                    BrewtilsOperation(
                         operation_type="GARDEN_UPDATE_STATUS",
                         args=[garden.name, operation.upper()],
                     )
                 )
             elif operation == "heartbeat":
                 response = await self.client(
-                    Operation(
+                    BrewtilsOperation(
                         operation_type="GARDEN_UPDATE_STATUS",
                         args=[garden.name, "RUNNING"],
                     )
                 )
             elif operation == "config":
-                garden_to_update = GardenSchema(strict=True).load(op.value).data
+                garden_to_update = self.load_or_raise(
+                    GardenSchema, op.value, from_string=False
+                )
+                # don't let a name change sneak through here
+                garden_to_update.name = garden_name
                 garden_to_update.id = garden.id
+
                 response = await self.client(
-                    Operation(
+                    BrewtilsOperation(
                         operation_type="GARDEN_UPDATE_CONFIG",
                         args=[garden_to_update],
                     )
                 )
             elif operation == "sync":
                 response = await self.client(
-                    Operation(
+                    BrewtilsOperation(
                         operation_type="GARDEN_SYNC",
                         kwargs={"sync_target": garden.name},
                     )
@@ -182,8 +193,7 @@ class GardenListAPI(AuthorizationHandler):
           - Garden
         """
         permitted_gardens: QuerySet = self.permissioned_queryset(Garden, GARDEN_READ)
-
-        response = GardenSchema(strict=True, many=True).dumps(permitted_gardens).data
+        response = self.format_response(GardenSchema, permitted_gardens, many=True)
 
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.write(response)
@@ -210,12 +220,12 @@ class GardenListAPI(AuthorizationHandler):
         tags:
           - Garden
         """
-        garden = GardenSchema(strict=True).loads(self.request.decoded_body).data
+        garden = self.load_or_raise(GardenSchema, self.request.decoded_body)
 
         self.verify_user_permission_for_object(GARDEN_CREATE, garden)
 
         response = await self.client(
-            Operation(
+            BrewtilsOperation(
                 operation_type="GARDEN_CREATE",
                 args=[garden],
             )
@@ -275,7 +285,7 @@ class GardenListAPI(AuthorizationHandler):
 
             if operation == "sync":
                 response = await self.client(
-                    Operation(
+                    BrewtilsOperation(
                         operation_type="GARDEN_SYNC",
                     )
                 )

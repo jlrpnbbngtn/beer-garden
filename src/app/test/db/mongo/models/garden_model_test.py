@@ -225,8 +225,8 @@ class TestGardenConnectionParameters:
         "conn_parm",
         (
             pytest.lazy_fixture("bad_conn_params"),
-            # pytest.lazy_fixture("bad_conn_params_with_partial_good"),
-            # pytest.lazy_fixture("bad_conn_params_with_full_good"),
+            pytest.lazy_fixture("bad_conn_params_with_partial_good"),
+            pytest.lazy_fixture("bad_conn_params_with_full_good"),
         ),
     )
     def test_remote_garden_save_fails_with_bad_conn_params(self, conn_parm):
@@ -292,7 +292,7 @@ class TestGardenConnectionParameters:
         "bad_headers",
         (
             garbage_headers_extra_key,
-            # garbage_headers_wrong_key,
+            garbage_headers_wrong_key,
         ),
     )
     def test_remote_garden_save_fails_with_garbage_stomp_headers(
@@ -302,7 +302,7 @@ class TestGardenConnectionParameters:
         test_params["headers"] = bad_headers
         connection_params = {"stomp": test_params}
 
-        with pytest.raises(ValidationError) as exc:
+        with pytest.raises(ValidationError):
             Garden(
                 name=garden_name,
                 connection_type="STOMP",

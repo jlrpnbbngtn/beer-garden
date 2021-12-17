@@ -30,11 +30,14 @@ class SerializeHelper(object):
         if serialize_kwargs.get("return_raw") or isinstance(result, six.string_types):
             return result
 
-        if self.json_dump(result):
-            return json.dumps(result) if serialize_kwargs["to_string"] else result
-
         if isinstance(result, BrewtilsGarden):
-            return GardenSchema(strict=True).dumps(result).data
+            return (
+                GardenSchema(strict=True).dumps(result).data
+                if serialize_kwargs["to_string"]
+                else GardenSchema(strict=True).dump(result).data
+            )
+        elif self.json_dump(result):
+            return json.dumps(result) if serialize_kwargs["to_string"] else result
 
         return SchemaParser.serialize(result, **(serialize_kwargs or {}))
 

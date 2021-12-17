@@ -4,7 +4,7 @@ import datetime
 import json
 import re
 import socket
-from typing import Type, Union
+from typing import Any, Dict, Text, Type, Union
 
 from brewtils.errors import (
     AuthorizationRequired,
@@ -198,7 +198,7 @@ class BaseHandler(RequestHandler):
                 message = error_dict.get("message", getattr(e, "message", str(e)))
                 code = error_dict.get("status_code", 500)
             elif issubclass(typ3, BaseHTTPError):
-                message = typ3.reason
+                message = self._reason
                 code = typ3.status_code
             elif config.get("ui.debug_mode"):
                 message = str(e)
@@ -210,7 +210,7 @@ class BaseHandler(RequestHandler):
         )
 
         self.set_header("Content-Type", "application/json; charset=UTF-8")
-        self.set_status(code)
+        self.set_status(code, reason=message)
         self.finish({"message": message})
 
     @property
@@ -250,3 +250,64 @@ class BaseHandler(RequestHandler):
             return schema(strict=True).load(self.request_body).data
         except MarshmallowValidationError:
             raise BadRequest
+
+    def load_or_raise(
+        self,
+        schema: Type[Schema],
+        arg: Any,
+        from_string: bool = True,
+        many: bool = False,
+    ):
+        """Apply a schema to an argument or raise a validation exception.
+
+        This is used to validate user-provided data.
+
+        Args:
+            schema: A schema derived from a marshmallow Schema that the argument
+                will be validated against
+            arg: The data to validate
+            from_string: Process `arg` as string if `True`
+            many: Process `arg` as a list of objects if `True`
+
+        Returns:
+            The result of deserializing the data
+
+        Raises:
+            BadRequest: The supplied data failed to validate against the schema
+        """
+        schema = schema(strict=True, many=many)
+
+        try:
+            return schema.loads(arg).data if from_string else schema.load(arg).data
+        except MarshmallowValidationError as mmve:
+            raise BadRequest(reason=str(mmve))
+
+    def format_response(
+        self, schema: Type[Schema], arg: Any, to_string: bool = True, many: bool = False
+    ) -> Union[Text, Dict]:
+        """Apply a schema to an argument or raise an internal error.
+
+        This is used to format internal models into serialized format, which could
+        potentially fail validation in cases where bad data was allowed into the
+        database.
+
+        Args:
+            schema: A schema derived from a marshmallow Schema that the argment
+                will be validated against
+            arg: The data to validate
+            to_string: Convert `arg` to string if `True`
+            many: The `arg` will be treated as a list of multiple objects if `True`
+
+        Returns:
+            The result of serializing the data
+
+        Raises:
+            MarshmallowValidationError: The supplied data failed to validate against the
+                schema
+
+        """
+        return (
+            schema(strict=True, many=many).dumps(arg).data
+            if to_string
+            else schema(strict=True, many=many).dump(arg).data
+        )
