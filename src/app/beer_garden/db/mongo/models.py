@@ -5,7 +5,10 @@ import logging
 
 import pytz
 import six
+from marshmallow import ValidationError as MarshmallowValidationError
 from passlib.apps import custom_app_context
+
+from beer_garden.db.schemas.garden_schema import GardenConnectionsParamsSchema
 
 try:
     from lark import ParseError
@@ -49,6 +52,7 @@ from mongoengine import (
     UUIDField,
     ValidationError,
 )
+from mongoengine.errors import ValidationError as MongoengineValidationError
 
 from beer_garden import config
 from beer_garden.db.mongo.querysets import FileFieldHandlingQuerySet
@@ -781,6 +785,14 @@ class Job(MongoModel, Document):
             )
 
 
+def validate_garden_connection_params(dict_field):
+    """Use the marshmallow schema to validate Garden connection parameters."""
+    try:
+        GardenConnectionsParamsSchema(strict=True).validate(dict(dict_field))
+    except MarshmallowValidationError as mmve:
+        raise MongoengineValidationError(mmve.messages)
+
+
 class Garden(MongoModel, Document):
     brewtils_model = brewtils.models.Garden
 
@@ -789,7 +801,7 @@ class Garden(MongoModel, Document):
     status_info = EmbeddedDocumentField("StatusInfo", default=StatusInfo())
     namespaces = ListField()
     connection_type = StringField()
-    connection_params = DictField()
+    connection_params = DictField(validation=validate_garden_connection_params)
     systems = ListField(ReferenceField(System, reverse_delete_rule=PULL))
 
     meta = {

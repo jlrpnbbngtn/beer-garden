@@ -168,17 +168,7 @@ def remove_garden(garden_name: str) -> None:
     return garden
 
 
-@publish_event(Events.GARDEN_CREATED)
-def create_garden(garden: Garden) -> Garden:
-    """Create a new Garden
-
-    Args:
-        garden: The Garden to create
-
-    Returns:
-        The created Garden
-
-    """
+def get_connection_defaults():
     # Explicitly load default config options into garden params
     spec = YapconfSpec(_CONNECTION_SPEC)
     # bg_host is required to load brewtils garden spec
@@ -193,6 +183,55 @@ def create_garden(garden: Garden) -> Garden:
         "ca_verify": "ca_verify",
         "client_cert": "client_cert",
     }
+
+    # TODO: this is a temporary work-around until Brewtils is configured to provide
+    # sensible defaults
+    sensible_defaults = {
+        "bg_host": "somehostname",
+        "bg_port": 1025,
+        "ssl_enabled": False,
+        "bg_url_prefix": "/",
+        "ca_cert": "none",
+        "ca_verify": False,
+        "client_cert": "none",
+    }
+    # substitute the sensible default only if we're provided `None` or an empty string
+    defaults = {
+        key: (
+            defaults[key]
+            if (
+                (defaults[key] is not None and (isinstance(defaults[key], bool)))
+                or defaults[key]
+            )
+            else sensible_defaults[key]
+        )
+        for key in config_map
+    }
+
+    return defaults
+
+
+@publish_event(Events.GARDEN_CREATED)
+def create_garden(garden: Garden) -> Garden:
+    """Create a new Garden
+
+    Args:
+        garden: The Garden to create
+
+    Returns:
+        The created Garden
+
+    """
+    config_map = {
+        "bg_host": "host",
+        "bg_port": "port",
+        "ssl_enabled": "ssl",
+        "bg_url_prefix": "url_prefix",
+        "ca_cert": "ca_cert",
+        "ca_verify": "ca_verify",
+        "client_cert": "client_cert",
+    }
+    defaults = get_connection_defaults()
 
     if garden.connection_params is None:
         garden.connection_params = {}
