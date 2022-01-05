@@ -39,7 +39,7 @@ def garden_callbacks(event: Event) -> None:
         (beer_garden.garden.handle_event, "Garden"),
         (beer_garden.plugin.handle_event, "Plugin"),
         (beer_garden.requests.handle_event, "Request"),
-        (beer_garden.router.handle_event, "Rounter"),
+        (beer_garden.router.handle_event, "Router"),
         (beer_garden.systems.handle_event, "System"),
         (beer_garden.scheduler.handle_event, "Scheduler"),
         (beer_garden.log.handle_event, "Log"),
