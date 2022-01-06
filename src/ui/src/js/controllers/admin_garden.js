@@ -19,7 +19,7 @@ export default function adminGardenController(
     $scope,
     $state,
     GardenService,
-    EventService
+    EventService,
 ) {
   $scope.setWindowTitle('gardens');
   $scope.gardenCreateSchema = GardenService.CreateSCHEMA;
@@ -43,7 +43,7 @@ export default function adminGardenController(
   const loadGardens = function() {
     GardenService.getGardens().then(
         $scope.successCallback,
-        $scope.failureCallback
+        $scope.failureCallback,
     );
   };
 

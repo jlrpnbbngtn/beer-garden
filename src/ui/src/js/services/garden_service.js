@@ -59,20 +59,20 @@ export default function gardenService($http) {
       for (const parameter of Object.keys(model['connection_params'])) {
         if (parameter == 'stomp_headers') {
           // eslint-disable-next-line guard-for-in
-          for (const key in model['connection_params'][parameter]) {
+          for (const key in model['connection_params']['stomp_headers']) {
             stompHeaders[stompHeaders.length] = {
               key: key,
-              value: model['connection_params'][parameter][key],
+              value: model['connection_params']['stomp_headers'][key],
             };
           }
-          values[parameter] = stompHeaders;
+          values['stomp_headers'] = stompHeaders;
         } else {
           // Recursively remove null/empty values from json payload
           const parameterValue = (function filter(obj) {
             Object.entries(obj).forEach(
                 ([key, val]) =>
                   (val && typeof val === 'object' && filter(val)) ||
-                ((val === null || val === '') && delete obj[key])
+                ((val === null || val === '') && delete obj[key]),
             );
             return obj;
           })(model.connection_params[parameter]);
@@ -81,34 +81,115 @@ export default function gardenService($http) {
         }
       }
     }
-
     return values;
   };
 
+  const isEmptyConnection = (entryPointName, entryPointValues) => {
+    const simpleFieldMissing = (entry) => {
+      // it's better to be explicit because of the inherent stupidity of
+      // Javascript "truthiness"
+      return typeof entryPointValues[entry] === 'undefined' ||
+            entryPointValues[entry] === null ||
+            entryPointValues[entry] === '';
+    };
+
+    if (entryPointName === 'stomp') {
+      const stompSimpleFields = [
+        'host', 'password', 'port', 'send_destination', 'subscribe_destination',
+        'username',
+      ];
+      const stompSslFields = ['ca_cert', 'client_cert', 'client_key'];
+      let nestedFieldsMissing = true;
+
+      const allSimpleFieldsMissing = stompSimpleFields.every(simpleFieldMissing);
+
+      const sslIsMissing = typeof entryPointValues['ssl'] === 'undefined' ||
+        entryPointValues['ssl'] === {};
+
+      if (!sslIsMissing) {
+        nestedFieldsMissing = stompSslFields.every(
+            (entry) =>
+              typeof entryPointValues['ssl'][entry] == 'undefined' ||
+            entryPointValues['ssl'][entry] == null ||
+            entryPointValues['ssl'][entry] === '',
+        );
+      }
+
+      return entryPointValues['headers'].length === 0 &&
+        allSimpleFieldsMissing &&
+        nestedFieldsMissing;
+    }
+
+    // is 'http'
+    const httpSimpleFields = [
+      'ca_cert', 'client_cert', 'host', 'port', 'url_prefix',
+    ];
+
+    return httpSimpleFields.every(simpleFieldMissing);
+  };
+
   GardenService.formToServerModel = function(model, form) {
-    model['connection_type'] = form['connection_type'];
-    model['connection_params'] = {};
-    const stompHeaders = {};
-    for (const field of Object.keys(form)) {
-      if (field == 'stomp_headers') {
-        // eslint-disable-next-line guard-for-in
-        for (const i in form[field]) {
-          stompHeaders[form[field][i]['key']] = form[field][i]['value'];
+    /* Carefully pick apart the form data and translate it to the correct server
+     * model. Throw an error if the entire form is empty (i.e., cannot have
+     * empty connection parameters for both entry points).
+     */
+    const {connection_type: formConnectionType, ...formWithoutConxType} = form;
+    model['connection_type'] = formConnectionType;
+
+    const modelUpdatedConnectionParams = {};
+    const emptyConnections = {};
+
+    for (const formEntryPointName of Object.keys(formWithoutConxType)) {
+      // formEntryPointName is either 'http' or 'stomp'
+      const formEntryPointMap = formWithoutConxType[formEntryPointName];
+      const modelUpdatedEntryPoint = {};
+
+      for (const formEntryPointKey of Object.keys(formEntryPointMap)) {
+        const formEntryPointValue = formEntryPointMap[formEntryPointKey];
+
+        if (formEntryPointName === 'stomp' && formEntryPointKey === 'headers') {
+          // the ugly corner case is the stomp headers
+          const formStompHeaders = formEntryPointValue;
+          const modelUpdatedStompHeaderArray = [];
+
+          for (const formStompHeader of formStompHeaders) {
+            const formStompKey = formStompHeader['key'];
+            const formStompValue = formStompHeader['value'];
+
+            // assume that we have both a key and a value or neither
+            if (formStompKey && formStompValue) {
+              modelUpdatedStompHeaderArray.push(
+                  {
+                    'key': formStompKey,
+                    'value': formStompValue,
+                  },
+              );
+            }
+          }
+
+          modelUpdatedEntryPoint['headers'] = modelUpdatedStompHeaderArray;
+        } else {
+          modelUpdatedEntryPoint[formEntryPointKey] = formEntryPointValue;
         }
-        model['connection_params'][field] = stompHeaders;
-      } else if (field != 'connection_type') {
-        model['connection_params'][field] = form[field];
+      }
+      if (!isEmptyConnection(formEntryPointName, modelUpdatedEntryPoint)) {
+        modelUpdatedConnectionParams[formEntryPointName] =
+          modelUpdatedEntryPoint;
+      } else {
+        emptyConnections[formEntryPointName] = true;
       }
     }
+
+    if (emptyConnections['http'] && emptyConnections['stomp']) {
+      throw Error('One of \'http\' or \'stomp\' connection must be defined');
+    }
+
+    model = {...model, 'connection_params': modelUpdatedConnectionParams};
 
     return model;
   };
 
   GardenService.CONNECTION_TYPES = ['HTTP', 'STOMP'];
-
-  //  GardenService.stomp_header_array_to_dict = function(key, value){
-  //    GardenService.
-  //  }
 
   GardenService.SCHEMA = {
     type: 'object',
@@ -249,8 +330,7 @@ export default function gardenService($http) {
             },
           },
           headers: {
-            title: 'Headers',
-            description: 'Headers to be sent with message',
+            title: ' ',
             type: 'array',
             items: {
               title: ' ',
@@ -307,6 +387,12 @@ export default function gardenService($http) {
                 'stomp.username',
                 'stomp.password',
                 'stomp.ssl',
+                {
+                  'type': 'help',
+                  'helpvalue': '<h4>Headers</h4><p>(Refresh browser if keys ' +
+                  'and values are known to exist but are not populated on this' +
+                  ' form)</p>',
+                },
                 'stomp.headers',
               ],
             },
@@ -321,7 +407,7 @@ export default function gardenService($http) {
         {
           type: 'submit',
           style: 'btn-primary w-100',
-          title: 'Save Configurations',
+          title: 'Save Configuration',
           htmlClass: 'col-md-10',
         },
       ],

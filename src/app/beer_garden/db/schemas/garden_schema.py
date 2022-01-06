@@ -19,17 +19,13 @@ class GardenBaseSchema(Schema):
     def validate_all_keys(self, post_load_data, original_data, **kwargs):
         # do not allow extraneous keys when operating on a dictionary
         if isinstance(original_data, dict):
-            extra_args = original_data.keys() - post_load_data.keys()
-
+            extra_args = post_load_data.keys() - original_data.keys()
             if len(extra_args) > 0:
-                formatted_good_keys = ", ".join(
-                    map(lambda x: "'" + str(x) + "'", self.fields.keys())
-                )
-                formatted_bad_keys = ", ".join(
-                    map(lambda x: "'" + str(x) + "'", extra_args)
-                )
+                formatted_good_keys = ", ".join(self.fields.keys())
+                formatted_bad_keys = ", ".join(extra_args)
+                
                 raise ValidationError(
-                    f"Only {formatted_good_keys} allowed as keys; "
+                    f"Only {formatted_good_keys} allowed as keys - "
                     f"these are not allowed: {formatted_bad_keys}"
                 )
 

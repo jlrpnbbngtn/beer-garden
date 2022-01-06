@@ -18,7 +18,7 @@ export default function routeConfig(
     $stateProvider,
     $urlRouterProvider,
     $urlMatcherFactoryProvider,
-    $locationProvider
+    $locationProvider,
 ) {
   $urlRouterProvider.otherwise('/');
   $urlMatcherFactoryProvider.strictMode(false);
@@ -60,7 +60,7 @@ export default function routeConfig(
                   (response) => {
                     $rootScope.sysResponse = response;
                     $rootScope.systems = [];
-                  }
+                  },
               );
             },
           ],
@@ -93,7 +93,7 @@ export default function routeConfig(
                 SystemService.findSystem(
                     $stateParams.namespace,
                     $stateParams.systemName,
-                    $stateParams.systemVersion
+                    $stateParams.systemVersion,
                 ) || {}
               );
             },
@@ -126,7 +126,7 @@ export default function routeConfig(
               return (
                 SystemService.findSystem(
                     $stateParams.namespace,
-                    $stateParams.systemName
+                    $stateParams.systemName,
                 ) || {}
               );
             },
@@ -157,7 +157,7 @@ export default function routeConfig(
               return SystemService.findSystem(
                   $stateParams.namespace,
                   $stateParams.systemName,
-                  $stateParams.systemVersion
+                  $stateParams.systemVersion,
               );
             },
           ],
