@@ -48,6 +48,19 @@ export default function gardenService($http) {
     return $http.delete('api/v1/gardens/' + encodeURIComponent(name));
   };
 
+  GardenService.importGardenConfig = (gardenDefinition, gardenConfigJson) => {
+    const gardenName = encodeURIComponent(gardenDefinition['name']);
+    const url = `api/v1/gardens/${gardenName}`;
+    const gardenConfig = JSON.parse(gardenConfigJson);
+    gardenDefinition['connection_params'] = gardenConfig;
+
+    return $http.patch(url, {
+      operation: 'config',
+      path: '',
+      value: gardenDefinition,
+    });
+  };
+
   GardenService.serverModelToForm = function(model) {
     const values = {};
     const stompHeaders = [];
@@ -84,72 +97,137 @@ export default function gardenService($http) {
     return values;
   };
 
-  const isEmptyConnection = (entryPointName, entryPointValues) => {
-    const simpleFieldMissing = (entry) => {
-      // it's better to be explicit because of the inherent stupidity of
-      // Javascript "truthiness"
-      return typeof entryPointValues[entry] === 'undefined' ||
+  const getSimpleFieldPredicate = (entryPointValues) => {
+    // it's better to be explicit because of the inherent stupidity of
+    // Javascript "truthiness"
+    return (
+      (entry) =>
+        typeof entryPointValues[entry] === 'undefined' ||
             entryPointValues[entry] === null ||
-            entryPointValues[entry] === '';
-    };
+            entryPointValues[entry] === ''
+    );
+  };
 
-    if (entryPointName === 'stomp') {
-      const stompSimpleFields = [
-        'host', 'password', 'port', 'send_destination', 'subscribe_destination',
-        'username',
-      ];
-      const stompSslFields = ['ca_cert', 'client_cert', 'client_key'];
-      let nestedFieldsMissing = true;
+  const isEmptyStompHeaders = (headerEntry) => {
+    const headersExist = !!headerEntry && 'headers' in headerEntry;
+    const headersZeroLength = (
+      !headersExist ||
+      headerEntry['headers'].length === 0);
+    const headersAllEmpty = (
+      !headersZeroLength &&
+      headerEntry['headers'].every((entry) => !!Object.entries(entry))
+    );
+    const headersAllBlank = (
+      !headersAllEmpty &&
+      headerEntry['headers'].every(
+          (entry) =>
+            ('key' in entry && entry['key'] === {}) ||
+            ('value' in entry && entry['value'] == {}))
+    );
 
-      const allSimpleFieldsMissing = stompSimpleFields.every(simpleFieldMissing);
+    return (
+      !headersExist ||
+      headersZeroLength ||
+      headersAllEmpty ||
+      headersAllBlank
+    );
+  };
 
-      const sslIsMissing = typeof entryPointValues['ssl'] === 'undefined' ||
-        entryPointValues['ssl'] === {};
+  const cleanEmptyStompHeaders = 'TODO';
 
-      if (!sslIsMissing) {
-        nestedFieldsMissing = stompSslFields.every(
-            (entry) =>
-              typeof entryPointValues['ssl'][entry] == 'undefined' ||
-            entryPointValues['ssl'][entry] == null ||
+  const isEmptyStompConnection = (entryPointValues) => {
+    /* If every field is missing, then obviously the stomp connection can be
+     * considered empty.
+     *
+     * It gets a little more complicated in other cases because a lot of garbage
+     * data is being passed around (an issue for another day).
+     *
+     * So we do a lot of checking of the corner cases in
+     * isEmptyStompConnection and isEmptyStompHeaders so that the results of
+     * this function is truly representative of whether we would consider the
+     * connection to be "empty".
+     *
+     * (The point of all this is that if the connection meets our common-sense
+     * definition of empty, then the resulting connection parameter object
+     * won't even have a 'stomp' entry at all, which is far preferable to
+     * polluting the database with the cruft that gets picked up in the UI.)
+     */
+    const simpleFieldMissing = getSimpleFieldPredicate(entryPointValues);
+
+    const stompSimpleFields = [
+      'host', 'password', 'port', 'send_destination', 'subscribe_destination',
+      'username',
+    ];
+    const stompSslFields = ['ca_cert', 'client_cert', 'client_key'];
+
+    const allSimpleFieldsMissing = stompSimpleFields.every(simpleFieldMissing);
+    const headersMissing = isEmptyStompHeaders(entryPointValues);
+    const sslIsMissing = typeof entryPointValues['ssl'] === 'undefined' ||
+        !!Object.entries(entryPointValues['ssl']);
+    let nestedFieldsMissing = true;
+
+    if (!sslIsMissing) {
+      nestedFieldsMissing = stompSslFields.every(
+          (entry) =>
+            typeof entryPointValues['ssl'][entry] === 'undefined' ||
+            entryPointValues['ssl'][entry] === null ||
             entryPointValues['ssl'][entry] === '',
-        );
-      }
-
-      return entryPointValues['headers'].length === 0 &&
-        allSimpleFieldsMissing &&
-        nestedFieldsMissing;
+      );
     }
 
-    // is 'http'
+    const allStompFieldsEmpty = headersMissing && allSimpleFieldsMissing &&
+        nestedFieldsMissing;
+
+    return allStompFieldsEmpty;
+  };
+
+  const isEmptyHttpConnection = (entryPointValues) => {
+    // Simply decide if every field in the http entry is blank.
+    const simpleFieldMissing = getSimpleFieldPredicate(entryPointValues);
     const httpSimpleFields = [
       'ca_cert', 'client_cert', 'host', 'port', 'url_prefix',
     ];
+    const allHttpFieldsEmpty = httpSimpleFields.every(simpleFieldMissing);
 
-    return httpSimpleFields.every(simpleFieldMissing);
+    return allHttpFieldsEmpty;
   };
 
-  GardenService.formToServerModel = function(model, form) {
+  GardenService.formToServerModel = function(data, model) {
     /* Carefully pick apart the form data and translate it to the correct server
-     * model. Throw an error if the entire form is empty (i.e., cannot have
-     * empty connection parameters for both entry points).
+     * model. Throw an error if the entire form is empty (i.e., don't allow
+     * empty connection parameters for both entry points on a remote garden).
      */
-    const {connection_type: formConnectionType, ...formWithoutConxType} = form;
-    model['connection_type'] = formConnectionType;
+    const {connection_type: modelConnectionType, ...modelWithoutConxType} = model;
+    let newModel = {...data};
+    newModel['connection_type'] = modelConnectionType;
 
-    const modelUpdatedConnectionParams = {};
+    const updatedConnectionParams = {};
     const emptyConnections = {};
+    const emptyChecker = {
+      'stomp': isEmptyStompConnection,
+      'http': isEmptyHttpConnection,
+    };
 
-    for (const formEntryPointName of Object.keys(formWithoutConxType)) {
-      // formEntryPointName is either 'http' or 'stomp'
-      const formEntryPointMap = formWithoutConxType[formEntryPointName];
-      const modelUpdatedEntryPoint = {};
+    for (const modelEntryPointName of Object.keys(modelWithoutConxType)) {
+      // modelEntryPointName is either 'http' or 'stomp'
+      const modelEntryPointMap = modelWithoutConxType[modelEntryPointName];
+      const isEmpty = emptyChecker[modelEntryPointName](modelEntryPointMap);
 
-      for (const formEntryPointKey of Object.keys(formEntryPointMap)) {
-        const formEntryPointValue = formEntryPointMap[formEntryPointKey];
+      if (isEmpty) {
+        emptyConnections[modelEntryPointName] = true;
+        continue;
+      } else {
+        emptyConnections[modelEntryPointName] = false;
+      }
 
-        if (formEntryPointName === 'stomp' && formEntryPointKey === 'headers') {
+      const updatedEntryPoint = {};
+
+      for (const modelEntryPointKey of Object.keys(modelEntryPointMap)) {
+        const modelEntryPointValue = modelEntryPointMap[modelEntryPointKey];
+
+        if (modelEntryPointName === 'stomp' && modelEntryPointKey === 'headers') {
           // the ugly corner case is the stomp headers
-          const formStompHeaders = formEntryPointValue;
+          const formStompHeaders = modelEntryPointValue;
           const modelUpdatedStompHeaderArray = [];
 
           for (const formStompHeader of formStompHeaders) {
@@ -167,26 +245,29 @@ export default function gardenService($http) {
             }
           }
 
-          modelUpdatedEntryPoint['headers'] = modelUpdatedStompHeaderArray;
+          if (modelUpdatedStompHeaderArray.length > 0) {
+            updatedEntryPoint['headers'] = modelUpdatedStompHeaderArray;
+          }
         } else {
-          modelUpdatedEntryPoint[formEntryPointKey] = formEntryPointValue;
+          updatedEntryPoint[modelEntryPointKey] = modelEntryPointValue;
         }
       }
-      if (!isEmptyConnection(formEntryPointName, modelUpdatedEntryPoint)) {
-        modelUpdatedConnectionParams[formEntryPointName] =
-          modelUpdatedEntryPoint;
-      } else {
-        emptyConnections[formEntryPointName] = true;
-      }
+      updatedConnectionParams[modelEntryPointName] = updatedEntryPoint;
     }
 
     if (emptyConnections['http'] && emptyConnections['stomp']) {
       throw Error('One of \'http\' or \'stomp\' connection must be defined');
+    } else if (emptyConnections['http'] && modelConnectionType === 'HTTP') {
+      throw Error('Connection type is \'HTTP\' but http connection parameters' +
+        'are blank');
+    } else if (emptyConnections['stomp'] && modelConnectionType === 'STOMP') {
+      throw Error('Connection type is \'STOMP\' but stomp connection ' +
+        'parameters are blank');
     }
 
-    model = {...model, 'connection_params': modelUpdatedConnectionParams};
+    newModel = {...newModel, 'connection_params': updatedConnectionParams};
 
-    return model;
+    return newModel;
   };
 
   GardenService.CONNECTION_TYPES = ['HTTP', 'STOMP'];

@@ -74,15 +74,16 @@
       Update Connection
       <button type="button"
             class="btn btn-primary pull-right"
-            ng-controller="JobImportController"
-            ng-click="openImportJobsPopup()">
+            ng-controller="GardenConfigImportController"
+            ng-click="openImportGardenConfigPopup()">
       Import Connection
     </button>
     <button type="button"
+            title="Export the connection as defined on the Beer Garden server"
             ng-if="responseState(response) === 'success'"
             class="btn btn-primary pull-right"
-            ng-controller="JobExportController"
-            ng-click="exportAllJobs()">
+            ng-controller="GardenConfigExportController"
+            ng-click="exportGardenConfig(data.name)">
       Export Connection
     </button>
     </h4>

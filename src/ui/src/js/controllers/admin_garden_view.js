@@ -43,8 +43,21 @@ export default function adminGardenViewController(
     $scope.$broadcast('schemaFormRedraw');
   };
 
+  $scope.updateModelFromImport = (newGardenDefinition) => {
+    const existingData = $scope.data;
+    const newConnType = newGardenDefinition['connection_type'];
+    const newConnParams = newGardenDefinition['connection_params'];
+
+    const newData = {...existingData,
+      connection_type: newConnType,
+      connection_params: newConnParams};
+
+    $scope.data = newData;
+
+    generateGardenSF();
+  };
+
   $scope.successCallback = function(response) {
-    console.log('response', response);
     $scope.response = response;
     $scope.data = response.data;
 
@@ -121,8 +134,11 @@ export default function adminGardenViewController(
     (entryPoint, fieldName) => `schemaForm.error.${entryPoint}.${fieldName}`;
 
   const fieldErrorMessage =
-    (errorObject) =>
-      typeof errorObject === 'string' ? Array(errorObject) : errorObject;
+    (errorObject) => {
+      const error = typeof errorObject === 'string' ?
+        Array(errorObject) : errorObject;
+      return error[0];
+    };
 
   const updateValidationMessages = (entryPoint, errorsObject) => {
     for (const fieldName in errorsObject) {
@@ -144,8 +160,8 @@ export default function adminGardenViewController(
      */
     if (response['data'] && response['data']['message']) {
       const messageData = String(response['data']['message']);
-      console.log('MESSG', messageData, 'TYPE', typeof messageData);
-      const cleanedMessages = messageData.replace(/'/g, '"');
+      const singleQuoteRegExp = new RegExp('\'', 'g');
+      const cleanedMessages = messageData.replace(singleQuoteRegExp, '"');
       const messages = JSON.parse(cleanedMessages);
 
       if ('connection_params' in messages) {
@@ -171,8 +187,14 @@ export default function adminGardenViewController(
     }
   };
 
+  const clearScopeAlerts = () => {
+    while ($scope.alerts.length) {
+      $scope.alerts.pop();
+    }
+  };
+
   $scope.submitGardenForm = function(form, model) {
-    $scope.alerts = [];
+    clearScopeAlerts();
     resetAllValidationErrors();
     $scope.$broadcast('schemaFormValidate');
 
@@ -183,6 +205,8 @@ export default function adminGardenViewController(
         updatedGarden =
           GardenService.formToServerModel($scope.data, model);
       } catch (e) {
+        console.log(e);
+
         $scope.alerts.push({
           type: 'warning',
           msg: e,
@@ -191,7 +215,7 @@ export default function adminGardenViewController(
 
       if (updatedGarden) {
         GardenService.updateGardenConfig(updatedGarden).then(
-            _.noop,
+            () => console.log('Garden update saved successfully'),
             $scope.addErrorAlert,
         );
       }
