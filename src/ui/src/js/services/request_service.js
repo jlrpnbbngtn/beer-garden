@@ -63,13 +63,13 @@ export default function requestService($q, $http, $interval) {
                   (errorResponse) => {
                     deferred.reject(errorResponse.data);
                     $interval.cancel(inter);
-                  }
+                  },
               );
             }, 500);
           },
           (errorResponse) => {
             deferred.reject(errorResponse.data);
-          }
+          },
       );
 
       return deferred.promise;

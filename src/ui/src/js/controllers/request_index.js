@@ -27,7 +27,7 @@ export default function requestIndexController(
     DTOptionsBuilder,
     DTColumnBuilder,
     RequestService,
-    EventService
+    EventService,
 ) {
   $scope.setWindowTitle('requests');
 
@@ -37,7 +37,7 @@ export default function requestIndexController(
       .withOption('autoWidth', false)
       .withOption(
           'pageLength',
-          localStorageService.get('_request_index_length') || 10
+          localStorageService.get('_request_index_length') || 10,
       )
       .withOption('ajax', function(data, callback, settings) {
       // Need to also request ID for the href
@@ -76,7 +76,7 @@ export default function requestIndexController(
             },
             (response) => {
               $scope.response = response;
-            }
+            },
         );
       })
       .withLightColumnFilter({

@@ -19,7 +19,7 @@ export default function adminSystemLogsController(
     $uibModalInstance,
     InstanceService,
     system,
-    instance
+    instance,
 ) {
   $scope.logs = undefined;
   $scope.start_line = 0;
@@ -70,7 +70,7 @@ export default function adminSystemLogsController(
         instance.id,
         $scope.wait_timeout,
         $scope.start_line,
-        $scope.end_line
+        $scope.end_line,
     ).then($scope.successLogs, $scope.addErrorAlert);
   };
 
@@ -82,7 +82,7 @@ export default function adminSystemLogsController(
         instance.id,
         $scope.wait_timeout,
         $scope.tail_line * -1,
-        null
+        null,
     ).then($scope.successLogs, $scope.addErrorAlert);
   };
 
@@ -94,7 +94,7 @@ export default function adminSystemLogsController(
         instance.id,
         $scope.wait_timeout,
         null,
-        null
+        null,
     ).then($scope.successLogs, $scope.addErrorAlert);
   };
 

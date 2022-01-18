@@ -27,7 +27,7 @@ export function adminUserController(
     $uibModal,
     RoleService,
     UserService,
-    PermissionService
+    PermissionService,
 ) {
   $scope.setWindowTitle('users');
 
@@ -57,12 +57,12 @@ export function adminUserController(
         (create) => {
           if (create.password === create.verify) {
             UserService.createUser(create.username, create.password).then(
-                loadUsers
+                loadUsers,
             );
           }
         },
         // We don't really need to do anything if canceled
-        () => {}
+        () => {},
     );
   };
 
@@ -152,7 +152,7 @@ export function adminUserController(
         $scope.raws.roles,
         (value, key, collection) => {
           return _.indexOf(primaryRoleNames, value.name) !== -1;
-        }
+        },
     );
 
     // ...so that we can calculate nested permissions...
@@ -196,7 +196,7 @@ export function adminUserController(
       const roleMap = arrayToMap(allRoleNames, $scope.roleNames);
       const permissionMap = arrayToMap(
           allPermissionNames,
-          $scope.raws.permissions
+          $scope.raws.permissions,
       );
 
       const primaryRoleMap = arrayToMap(primaryRoleNames, $scope.roleNames);
@@ -270,7 +270,7 @@ export function adminUserController(
         },
         (response) => {
           $scope.response = response;
-        }
+        },
     );
   }
 

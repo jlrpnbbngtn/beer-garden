@@ -21,7 +21,7 @@ export function jobImportController(
     $rootScope,
     $uibModal,
     $state,
-    JobService
+    JobService,
 ) {
   $scope.response = $rootScope.sysResponse;
   $scope.data = $rootScope.systems;
@@ -41,7 +41,7 @@ export function jobImportController(
           },
           function(response) {
             alert('Failure! Server returned status ' + response.status);
-          }
+          },
       );
     }, angular.noop);
   };

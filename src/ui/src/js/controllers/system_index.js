@@ -19,7 +19,7 @@ export default function systemIndexController(
     $rootScope,
     localStorageService,
     UtilityService,
-    DTOptionsBuilder
+    DTOptionsBuilder,
 ) {
   $scope.setWindowTitle();
 
@@ -29,7 +29,7 @@ export default function systemIndexController(
       .withOption('autoWidth', false)
       .withOption(
           'pageLength',
-          localStorageService.get('_system_index_length') || 10
+          localStorageService.get('_system_index_length') || 10,
       )
       .withOption('order', [
         [0, 'asc'],

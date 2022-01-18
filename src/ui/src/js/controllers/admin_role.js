@@ -24,7 +24,7 @@ export function adminRoleController(
     $q,
     $uibModal,
     RoleService,
-    PermissionService
+    PermissionService,
 ) {
   $scope.setWindowTitle('roles');
 
@@ -55,7 +55,7 @@ export function adminRoleController(
           RoleService.createRole(create).then(loadAll);
         },
         // We don't really need to do anything if canceled
-        () => {}
+        () => {},
     );
   };
 
@@ -180,7 +180,7 @@ export function adminRoleController(
         $scope.raws.roles,
         (value, key, collection) => {
           return _.indexOf(primaryRoleNames, value.name) !== -1;
-        }
+        },
     );
 
     // ...so that we can calculate nested permissions...
@@ -190,7 +190,7 @@ export function adminRoleController(
     // And then combine them into one big list o' permissions
     const allPermissionNames = _.union(
         primaryPermissionNames,
-        nestedPermissionNames
+        nestedPermissionNames,
     );
 
     // Finally, convert that list back into the map angular wants
@@ -273,25 +273,25 @@ export function adminRoleController(
             const nestedRoleNames = _.difference(allRoleNames, primaryRoleNames);
             const allPermissionNames = _.union(
                 primaryPermissionNames,
-                coalesced[1]
+                coalesced[1],
             );
 
             const roleMap = arrayToMap(allRoleNames, $scope.roleNames);
             const permissionMap = arrayToMap(
                 allPermissionNames,
-                $scope.raws.permissions
+                $scope.raws.permissions,
             );
 
             const primaryRoleMap = arrayToMap(primaryRoleNames, $scope.roleNames);
             const primaryPermissionMap = arrayToMap(
                 primaryPermissionNames,
-                $scope.raws.permissions
+                $scope.raws.permissions,
             );
 
             const nestedRoleMap = arrayToMap(nestedRoleNames, $scope.roleNames);
             const nestedPermissionMap = arrayToMap(
                 nestedPermissionNames,
-                $scope.raws.permissions
+                $scope.raws.permissions,
             );
 
             thaRoles.push({
@@ -331,7 +331,7 @@ export function adminRoleController(
         },
         (response) => {
           $scope.response = response;
-        }
+        },
     );
   }
 

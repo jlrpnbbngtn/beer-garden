@@ -25,7 +25,7 @@ export default function commandIndexController(
     $sce,
     localStorageService,
     DTOptionsBuilder,
-    SystemService
+    SystemService,
 ) {
   $scope.setWindowTitle('commands');
   $scope.filterHidden = false;
@@ -35,7 +35,7 @@ export default function commandIndexController(
       .withOption('autoWidth', false)
       .withOption(
           'pageLength',
-          localStorageService.get('_command_index_length') || 10
+          localStorageService.get('_command_index_length') || 10,
       )
       .withOption('hiddenContainer', true)
       .withOption('order', [
@@ -140,7 +140,7 @@ export default function commandIndexController(
           const foundSystem = SystemService.findSystem(
               $stateParams.namespace,
               $stateParams.systemName,
-              $stateParams.systemVersion
+              $stateParams.systemVersion,
           );
           if (foundSystem.template) {
             if ($scope.config.executeJavascript) {

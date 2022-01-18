@@ -98,7 +98,7 @@ export default function systemService($rootScope, $http) {
     // All versions for systems with the given system name
     const versions = _.map(
         _.filter($rootScope.systems, {name: system.name}),
-        _.property('version')
+        _.property('version'),
     );
 
     // Sorted according to the system comparison function

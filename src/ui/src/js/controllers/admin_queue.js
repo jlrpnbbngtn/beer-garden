@@ -24,7 +24,7 @@ export default function adminQueueController(
     $interval,
     QueueService,
     system,
-    instance
+    instance,
 ) {
   $scope.alerts = [];
   $scope.system = system;
@@ -34,7 +34,7 @@ export default function adminQueueController(
   $scope.clearQueue = function(queueName) {
     QueueService.clearQueue(queueName).then(
         $scope.addSuccessAlert,
-        $scope.failureCallback
+        $scope.failureCallback,
     );
   };
 
@@ -95,7 +95,7 @@ export default function adminQueueController(
 
     $scope.queues = QueueService.getInstanceQueues($scope.instance.id).then(
         $scope.successCallback,
-        $scope.addErrorAlert
+        $scope.addErrorAlert,
     );
   }
 

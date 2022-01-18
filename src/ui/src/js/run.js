@@ -58,7 +58,7 @@ export default function appRun(
     UserService,
     TokenService,
     RoleService,
-    EventService
+    EventService,
 ) {
   $rootScope.$state = $state;
   $rootScope.$stateParams = $stateParams;
@@ -105,7 +105,7 @@ export default function appRun(
         },
         (response) => {
           return $q.reject(response);
-        }
+        },
     );
     return $rootScope.userPromise;
   };
@@ -191,7 +191,7 @@ export default function appRun(
             $rootScope.changeUser(TokenService.getToken());
             location.reload();
           },
-          _.noop // Prevents annoying console log messages
+          _.noop, // Prevents annoying console log messages
       );
       loginModal.closed.then(() => {
         loginModal = undefined;

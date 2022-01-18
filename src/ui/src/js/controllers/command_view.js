@@ -37,7 +37,7 @@ export default function commandViewController(
     RequestService,
     SFBuilderService,
     system,
-    command
+    command,
 ) {
   let tempResponse = $rootScope.sysResponse;
 
@@ -131,7 +131,7 @@ export default function commandViewController(
       $scope.createRequest(model);
     } else {
       $scope.alerts.push(
-          'Looks like there was an error validating the request.'
+          'Looks like there was an error validating the request.',
       );
     }
   };
@@ -167,7 +167,7 @@ export default function commandViewController(
         }
         fd.append(
             $scope.command.parameters[i].key,
-            document.getElementById($scope.command.parameters[i].key).files[0]
+            document.getElementById($scope.command.parameters[i].key).files[0],
         );
       }
     }
@@ -182,7 +182,7 @@ export default function commandViewController(
         },
         function(response) {
           $scope.createResponse = response;
-        }
+        },
     );
   };
 
@@ -257,7 +257,7 @@ export default function commandViewController(
         $scope.command.name,
         $scope.system.display_name || $scope.system.name,
         $scope.system.version,
-        'command'
+        'command',
     );
   };
 
@@ -283,7 +283,7 @@ export default function commandViewController(
           }
         }
       },
-      true
+      true,
   );
 
   // This process of stringify / parse will break the optional model
@@ -309,7 +309,7 @@ export default function commandViewController(
             }
           }
         },
-        true
+        true,
     );
   }
 

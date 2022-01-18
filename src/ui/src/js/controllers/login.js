@@ -19,7 +19,7 @@ export default function loginController(
     $scope,
     $timeout,
     $uibModalInstance,
-    TokenService
+    TokenService,
 ) {
   $scope.model = {};
 
@@ -40,7 +40,7 @@ export default function loginController(
             $scope.model.password = undefined;
             angular.element('input[type="password"]').focus();
           }
-        }
+        },
     );
   };
 

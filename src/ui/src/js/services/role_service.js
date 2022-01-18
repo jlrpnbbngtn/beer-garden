@@ -57,7 +57,7 @@ export default function roleService($http) {
           roleId,
           _.map(permissions, (value) => {
             return {operation: 'add', path: '/permissions', value: value};
-          })
+          }),
       );
     },
     removePermissions: (roleId, permissions) => {
@@ -65,7 +65,7 @@ export default function roleService($http) {
           roleId,
           _.map(permissions, (value) => {
             return {operation: 'remove', path: '/permissions', value: value};
-          })
+          }),
       );
     },
     setPermissions: (roleId, permissions) => {
@@ -78,7 +78,7 @@ export default function roleService($http) {
           roleId,
           _.map(roles, (value) => {
             return {operation: 'add', path: '/roles', value: value};
-          })
+          }),
       );
     },
     removeRoles: (roleId, roles) => {
@@ -86,7 +86,7 @@ export default function roleService($http) {
           roleId,
           _.map(roles, (value) => {
             return {operation: 'remove', path: '/roles', value: value};
-          })
+          }),
       );
     },
     setRoles: (roleId, roles) => {

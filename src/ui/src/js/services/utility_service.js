@@ -45,7 +45,7 @@ export function mapToArray(map) {
           accumulator.push(key);
         }
       },
-      []
+      [],
   );
 }
 

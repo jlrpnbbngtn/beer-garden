@@ -82,7 +82,7 @@ export default function errorService() {
 
       return _.concat(
           _.get(errorMap[statusCode], specific, []),
-          _.get(errorMap[statusCode], 'common', [])
+          _.get(errorMap[statusCode], 'common', []),
       );
     },
   };

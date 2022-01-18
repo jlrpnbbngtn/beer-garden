@@ -38,7 +38,7 @@ export default function userService($http) {
           userId,
           _.map(roles, (value) => {
             return {operation: 'add', path: '/roles', value: value};
-          })
+          }),
       );
     },
     removeRoles: (userId, roles) => {
@@ -46,7 +46,7 @@ export default function userService($http) {
           userId,
           _.map(roles, (value) => {
             return {operation: 'remove', path: '/roles', value: value};
-          })
+          }),
       );
     },
     setRoles: (userId, roles) => {

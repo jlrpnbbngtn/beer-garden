@@ -66,7 +66,7 @@ export function authInterceptorService($q, $injector) {
                 },
                 (response) => {
                   deferred.reject();
-                }
+                },
             );
           });
 
@@ -91,7 +91,7 @@ export function authInterceptorService($q, $injector) {
                 () => {
                 // User dismissed the modal so return the original rejection
                   return $q.reject(rejection);
-                }
+                },
             );
           }
         }

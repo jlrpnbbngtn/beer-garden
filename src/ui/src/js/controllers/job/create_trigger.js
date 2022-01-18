@@ -18,7 +18,7 @@ export default function jobCreateTriggerController(
     $scope,
     $state,
     $stateParams,
-    JobService
+    JobService,
 ) {
   $scope.setWindowTitle('scheduler');
 
@@ -62,7 +62,7 @@ export default function jobCreateTriggerController(
           model['interval_timezone'] === null)
       ) {
         $scope.alerts.push(
-            'If a date is specified, you must specify the timezone.'
+            'If a date is specified, you must specify the timezone.',
         );
         valid = false;
       }
@@ -78,7 +78,7 @@ export default function jobCreateTriggerController(
           model['cron_timezone'] === null)
       ) {
         $scope.alerts.push(
-            'If a date is specified, you must specify the timezone.'
+            'If a date is specified, you must specify the timezone.',
         );
         valid = false;
       }
@@ -129,7 +129,7 @@ export default function jobCreateTriggerController(
           }
         }
       },
-      true
+      true,
   );
 
   $scope.submit = function(form, model) {
@@ -148,11 +148,11 @@ export default function jobCreateTriggerController(
           },
           function(response) {
             $scope.createResponse = response;
-          }
+          },
       );
     } else {
       $scope.alerts.push(
-          'Looks like there was an error validating the request.'
+          'Looks like there was an error validating the request.',
       );
     }
   };

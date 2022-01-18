@@ -63,7 +63,7 @@ export default function tokenService($http, localStorageService) {
               (response) => {
                 service.clearRefresh();
                 service.clearToken();
-              }
+              },
           );
     },
   });

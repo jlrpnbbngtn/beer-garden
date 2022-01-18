@@ -15,6 +15,6 @@ export default function AboutController($scope, UtilityService) {
       },
       (response) => {
         $scope.response = response;
-      }
+      },
   );
 }

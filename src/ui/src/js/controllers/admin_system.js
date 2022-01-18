@@ -40,7 +40,7 @@ export default function adminSystemController(
     AdminService,
     QueueService,
     RunnerService,
-    EventService
+    EventService,
 ) {
   $scope.response = undefined;
   $scope.runnerResponse = undefined;
@@ -88,7 +88,7 @@ export default function adminSystemController(
   $scope.clearAllQueues = function() {
     QueueService.clearQueues().then(
         $scope.addSuccessAlert,
-        $scope.addErrorAlert
+        $scope.addErrorAlert,
     );
   };
 

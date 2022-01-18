@@ -11,7 +11,7 @@ export default function jobExportController(
     $scope,
     $rootScope,
     $filter,
-    JobService
+    JobService,
 ) {
   $scope.response = $rootScope.sysResponse;
   $scope.data = $rootScope.systems;
@@ -30,7 +30,7 @@ export default function jobExportController(
           downloadLink.attr('download', filename);
           downloadLink[0].click();
         },
-        () => alert('Aborting: No Jobs defined or unknown error.')
+        () => alert('Aborting: No Jobs defined or unknown error.'),
     );
   };
 }

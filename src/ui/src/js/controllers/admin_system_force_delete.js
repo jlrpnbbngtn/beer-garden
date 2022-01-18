@@ -22,7 +22,7 @@ export default function adminSystemForceDeleteController(
     $uibModalInstance,
     SystemService,
     system,
-    response
+    response,
 ) {
   $scope.alerts = [];
   $scope.system = system;

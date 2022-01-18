@@ -38,7 +38,7 @@ export default function requestViewController(
     localStorageService,
     RequestService,
     SystemService,
-    EventService
+    EventService,
 ) {
   $scope.request = undefined;
   $scope.complete = false;
@@ -184,7 +184,7 @@ export default function requestViewController(
     const requestSystem = SystemService.findSystem(
         namespace,
         $scope.request.system,
-        $scope.request.system_version
+        $scope.request.system_version,
     );
     if (requestSystem != undefined) {
       const commands = requestSystem.commands;
@@ -207,7 +207,7 @@ export default function requestViewController(
         $scope.request.metadata.system_display_name || $scope.request.system,
         $scope.request.system_version,
         $scope.request.instance_name,
-        'request'
+        'request',
     );
 
     if (RequestService.isComplete($scope.request)) {
@@ -240,7 +240,7 @@ export default function requestViewController(
     const system = SystemService.findSystem(
         $scope.request.namespace,
         $scope.request.system,
-        $scope.request.system_version
+        $scope.request.system_version,
     );
     $scope.instanceStatus = _.find(system.instances, {
       name: $scope.request.instance_name,

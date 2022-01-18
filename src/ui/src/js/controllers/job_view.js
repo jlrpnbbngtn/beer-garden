@@ -25,7 +25,7 @@ export function jobViewController(
     $state,
     $stateParams,
     $uibModal,
-    JobService
+    JobService,
 ) {
   $scope.setWindowTitle('scheduler');
 
@@ -45,7 +45,7 @@ export function jobViewController(
     $scope.formattedRequestTemplate = JSON.stringify(
         $scope.data.request_template,
         undefined,
-        2
+        2,
     );
     $scope.formattedTrigger = JSON.stringify($scope.data.trigger, undefined, 2);
   };
@@ -53,14 +53,14 @@ export function jobViewController(
   $scope.resumeJob = function(jobId) {
     JobService.resumeJob(jobId).then(
         $scope.successCallback,
-        $scope.failureCallback
+        $scope.failureCallback,
     );
   };
 
   $scope.pauseJob = function(jobId) {
     JobService.pauseJob(jobId).then(
         $scope.successCallback,
-        $scope.failureCallback
+        $scope.failureCallback,
     );
   };
 
@@ -71,7 +71,7 @@ export function jobViewController(
   $scope.deleteJob = function(jobId) {
     JobService.deleteJob(jobId).then(
         $state.go('base.jobs'),
-        $scope.failureCallback
+        $scope.failureCallback,
     );
   };
 
@@ -86,7 +86,7 @@ export function jobViewController(
 
     JobService.getJob($stateParams.id).then(
         $scope.successCallback,
-        $scope.failureCallback
+        $scope.failureCallback,
     );
   }
 
@@ -103,13 +103,13 @@ export function jobViewController(
     JobService.runAdHocJob(jobId, $scope.resetTheInterval).then(
         function(response) {
           console.log(
-              `Ad hoc run of ID ${jobId}; reset interval: ${resettingInterval}`
+              `Ad hoc run of ID ${jobId}; reset interval: ${resettingInterval}`,
           );
           $state.go('base.jobs');
         },
         function(response) {
           alert('Failure! Server returned status ' + response.status);
-        }
+        },
     );
   }
 
@@ -146,7 +146,7 @@ export function jobViewController(
             $scope.resetTheInterval = result;
             runAdHoc(jobId);
           },
-          () => console.log('Ad hoc run cancelled')
+          () => console.log('Ad hoc run cancelled'),
       );
     } else {
       runAdHoc(jobId);

@@ -5,6 +5,6 @@ compilerConfig.$inject = ['$compileProvider'];
  */
 export function compilerConfig($compileProvider) {
   $compileProvider.aHrefSanitizationTrustedUrlList(
-      /^\s*(https?|ftp|mailto|tel|file|blob):/
+      /^\s*(https?|ftp|mailto|tel|file|blob):/,
   );
 }

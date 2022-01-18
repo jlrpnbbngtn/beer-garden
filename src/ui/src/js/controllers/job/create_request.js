@@ -21,7 +21,7 @@ export default function jobCreateRequestController(
     $state,
     $stateParams,
     SFBuilderService,
-    SystemService
+    SystemService,
 ) {
   $scope.setWindowTitle('scheduler');
 
@@ -39,7 +39,7 @@ export default function jobCreateRequestController(
     $scope.system = SystemService.findSystem(
         $stateParams.job.request_template.namespace,
         $stateParams.job.request_template.system,
-        $stateParams.job.request_template.system_version
+        $stateParams.job.request_template.system_version,
     );
 
     for (const i in $scope.system.commands) {
@@ -91,7 +91,7 @@ export default function jobCreateRequestController(
           }
         }
       },
-      true
+      true,
   );
 
   $scope.submit = function(form, model) {
@@ -136,7 +136,7 @@ export default function jobCreateRequestController(
       });
     } else {
       $scope.alerts.push(
-          'Looks like there was an error validating the request.'
+          'Looks like there was an error validating the request.',
       );
     }
   };

@@ -18,13 +18,13 @@ export default function runDTRenderer(DTRendererService) {
                     .css('margin-top', '-4px')
                     .change(() => {
                       $('.dataTable').dataTable().fnUpdate();
-                    })
+                    }),
             )
             .append(
                 $('<label>')
                     .attr('for', 'childCheck')
                     .css('padding-left', '4px')
-                    .text('Show Children')
+                    .text('Show Children'),
             );
         $('.dataTables_filter').prepend(childContainer);
       }
@@ -40,13 +40,13 @@ export default function runDTRenderer(DTRendererService) {
                     .css('margin-top', '-4px')
                     .change(() => {
                       $('.dataTable').dataTable().fnUpdate();
-                    })
+                    }),
             )
             .append(
                 $('<label>')
                     .attr('for', 'hiddenRequestCheck')
                     .css('padding-left', '4px')
-                    .text('Show Hidden')
+                    .text('Show Hidden'),
             );
         $('.dataTables_filter').prepend(hiddenRequestContainer);
       }
@@ -57,13 +57,13 @@ export default function runDTRenderer(DTRendererService) {
             .css('margin-right', '20px')
             .attr(
                 'style',
-                'list-style-type:none;margin-right:20px; display:inline; padding-left:0px;'
+                'list-style-type:none;margin-right:20px; display:inline; padding-left:0px;',
             )
             .append(
                 $('<label>')
                     .attr('for', 'filterHidden')
                     .css('padding-left', '4px')
-                    .text('Show Hidden')
+                    .text('Show Hidden'),
             );
         $('.dataTables_filter').prepend(hiddenContainer);
         const node = document.getElementById('filterHidden');
@@ -87,7 +87,7 @@ export default function runDTRenderer(DTRendererService) {
                 $('<span>')
                     .addClass('fa')
                     .addClass('fa-refresh')
-                    .css('padding-right', '5px')
+                    .css('padding-right', '5px'),
             )
             .append($('<span>').text('Refresh'));
         $('.dataTables_length').append(refreshButton);
@@ -103,10 +103,10 @@ export default function runDTRenderer(DTRendererService) {
                 $('<span>')
                     .addClass('glyphicon')
                     .addClass('glyphicon-info-sign')
-                    .css('padding-right', '5px')
+                    .css('padding-right', '5px'),
             )
             .append(
-                $('<span>').css('cursor', 'default').text('Updates Detected')
+                $('<span>').css('cursor', 'default').text('Updates Detected'),
             );
         $('.dataTables_length').append(newData);
       }
