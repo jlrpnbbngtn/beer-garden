@@ -1,61 +1,56 @@
-import template from '../../../templates/import_jobs.html';
+import template from '../../../templates/import_garden_config.html';
 
-jobImportController.$inject = [
+gardenConfigImportController.$inject = [
   '$scope',
   '$rootScope',
   '$uibModal',
   '$state',
-  'JobService',
 ];
 
 /**
- * jobImportController - Controller for job import.
- * @param  {Object} $scope            Angular's $scope object.
- * @param  {Object} $rootScope        Angular's $rootScope object.
- * @param  {Object} $uibModal         Angular UI's $uibModal object.
- * @param  {Object} $state            State
- * @param  {Object} JobService        Beer-Garden's job service.
+ * gardenConfigImportController - Controller for garden config import.
+ * @param  {Object} $scope                     Angular's $scope object.
+ * @param  {Object} $rootScope                 Angular's $rootScope object.
+ * @param  {Object} $uibModal                  Angular UI's $uibModal object.
+ * @param  {Object} $state                     State
  */
-export function jobImportController(
+export function gardenConfigImportController(
     $scope,
     $rootScope,
     $uibModal,
     $state,
-    JobService,
 ) {
   $scope.response = $rootScope.sysResponse;
-  $scope.data = $rootScope.systems;
 
-  $scope.openImportJobsPopup = function() {
+  $scope.openImportGardenConfigPopup = () => {
     const popupInstance = $uibModal.open({
       animation: true,
-      controller: 'JobImportModalController',
+      controller: 'GardenConfigImportModalController',
       template: template,
     });
 
-    popupInstance.result.then(function(resolvedResponse) {
+    popupInstance.result.then((resolvedResponse) => {
       const jsonFileContents = resolvedResponse.jsonFileContents;
-      JobService.importJobs(jsonFileContents).then(
-          function(response) {
-            $state.reload();
-          },
-          function(response) {
-            alert('Failure! Server returned status ' + response.status);
-          },
-      );
+      const newConfig = JSON.parse(jsonFileContents);
+
+      $scope.updateModelFromImport(newConfig);
     }, angular.noop);
   };
 }
 
-jobImportModalController.$inject = ['$scope', '$window', '$uibModalInstance'];
+gardenConfigImportModalController.$inject =
+    ['$scope', '$window', '$uibModalInstance'];
 
 /**
- * jobImportModalController - Controller for the job import popup window.
+ * gardenConfigImportModalController - Controller for the garden config import
+ * popup window.
+ *
  * @param {Object} $scope Angular's $scope object.
  * @param {Object} $window Object for the browser window.
  * @param {Object} $uibModalInstance Object for the modal popup window.
  */
-export function jobImportModalController($scope, $window, $uibModalInstance) {
+export function gardenConfigImportModalController(
+    $scope, $window, $uibModalInstance) {
   $scope.import = {};
   $scope.fileName = undefined;
   $scope.fileContents = undefined;
