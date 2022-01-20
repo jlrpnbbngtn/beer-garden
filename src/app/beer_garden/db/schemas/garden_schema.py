@@ -1,6 +1,7 @@
 import logging
 
 from brewtils.models import Garden as BrewtilsGarden
+from brewtils.schema_parser import SchemaParser as BrewtilsSchemaParser
 from brewtils.schemas import StatusInfoSchema  # noqa # until we can fully decouple
 from brewtils.schemas import SystemSchema  # noqa # until we can fully decouple
 from marshmallow import Schema, ValidationError, fields
@@ -19,7 +20,7 @@ class GardenBaseSchema(Schema):
     def validate_all_keys(self, post_load_data, original_data, **kwargs):
         # do not allow extraneous keys when operating on a dictionary
         if isinstance(original_data, dict):
-            extra_args = original_data.keys() - post_load_data.keys()
+            extra_args = set(original_data.keys()) - set(post_load_data.keys())
 
             if len(extra_args) > 0:
                 formatted_good_keys = ", ".join(
@@ -50,10 +51,10 @@ class HttpConnectionParamsSchema(GardenBaseSchema):
     )
     url_prefix = fields.String(required=True, dump_default="/", load_default="/")
     ca_cert = fields.String(required=False, allow_none=True)
-    ca_verify = fields.Boolean(required=True)
+    ca_verify = fields.Boolean(required=True, default=False, missing=False)
     client_cert = fields.String(required=False, allow_none=True)
     client_key = fields.String(required=False, allow_none=True)
-    ssl = fields.Boolean(required=True)
+    ssl = fields.Boolean(required=True, default=False, missing=False)
 
 
 class StompSSLParamsSchema(GardenBaseSchema):
@@ -106,4 +107,13 @@ class GardenSchema(GardenBaseSchema):
 
     @post_load
     def make_object(self, data):
-        return BrewtilsGarden(**data)
+        SYSTEMS = "systems"
+
+        systems_brewtils_list = list(
+            map(BrewtilsSchemaParser.parse_system, data.pop(SYSTEMS, None) or [])
+        )
+
+        garden = BrewtilsGarden(**data)
+        setattr(garden, SYSTEMS, systems_brewtils_list)
+
+        return garden

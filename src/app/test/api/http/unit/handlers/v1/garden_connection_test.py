@@ -68,7 +68,7 @@ class TestGardenConnections:
         (
             (
                 pytest.lazy_fixture("garden_with_http_connection_params"),
-                {"host", "port", "ssl"},
+                {"host", "port", "url_prefix"},
                 "http",
             ),
             (

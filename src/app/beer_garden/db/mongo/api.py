@@ -111,8 +111,12 @@ def to_brewtils(
         model_class = obj.brewtils_model
         many = False
 
-    if getattr(obj, "pre_serialize", None):
+    if not many and getattr(obj, "pre_serialize", None):
         obj.pre_serialize()
+    elif many:
+        for o in obj:
+            if getattr(o, "pre_serialize", None):
+                o.pre_serialize()
 
     if model_class == brewtils.models.Garden:
         # first step in decoupling from Brewtils
