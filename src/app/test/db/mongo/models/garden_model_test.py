@@ -3,8 +3,7 @@ import copy
 from contextlib import nullcontext as does_not_raise
 
 import pytest
-from mongoengine import NotUniqueError, connect
-from mongoengine.errors import ValidationError
+from mongoengine import NotUniqueError, ValidationError, connect
 
 from beer_garden.db.mongo.models import Garden, System
 
@@ -151,10 +150,6 @@ class TestGardenConnectionParameters:
         Garden.drop_collection()
 
     @pytest.fixture
-    def bad_conn_params(self):
-        return dict([("nonempty", "dictionaries"), ("should", "fail")])
-
-    @pytest.fixture
     def http_conn_params(self):
         return {
             "http": {
@@ -188,57 +183,13 @@ class TestGardenConnectionParameters:
         stomp_conn_params["stomp"]["headers"] = headers
         return stomp_conn_params
 
-    @pytest.fixture
-    def bad_conn_params_with_partial_good(self, http_conn_params, bad_conn_params):
-        return {**http_conn_params, **bad_conn_params}
-
-    @pytest.fixture
-    def bad_conn_params_with_full_good(
-        self, bad_conn_params_with_partial_good, stomp_conn_params_basic
-    ):
-        return {**stomp_conn_params_basic, **bad_conn_params_with_partial_good}
-
-    @pytest.mark.parametrize(
-        "conn_parm",
-        (
-            pytest.lazy_fixture("bad_conn_params"),
-            pytest.lazy_fixture("bad_conn_params_with_partial_good"),
-            pytest.lazy_fixture("bad_conn_params_with_full_good"),
-        ),
-    )
-    def test_local_garden_save_fails_with_nonempty_conn_params(self, conn_parm):
-        with pytest.raises(ValidationError) as excinfo:
-            Garden(
-                name=garden_name,
-                connection_type="LOCAL",
-                connection_params=conn_parm,
-            ).save()
-        assert "not allowed" in str(excinfo.value)
-
     def test_local_garden_save_succeeds_with_empty_conn_params(self):
         with does_not_raise():
             Garden(
                 name=garden_name, connection_type="LOCAL", connection_params={}
             ).save().delete()
 
-    @pytest.mark.parametrize(
-        "conn_parm",
-        (
-            pytest.lazy_fixture("bad_conn_params"),
-            pytest.lazy_fixture("bad_conn_params_with_partial_good"),
-            pytest.lazy_fixture("bad_conn_params_with_full_good"),
-        ),
-    )
-    def test_remote_garden_save_fails_with_bad_conn_params(self, conn_parm):
-        with pytest.raises(ValidationError) as excinfo:
-            Garden(
-                name=garden_name,
-                connection_type="HTTP",
-                connection_params=conn_parm,
-            ).save()
-        assert "not allowed" in str(excinfo.value)
-
-    @pytest.mark.parametrize("required", ("port", "ssl", "ca_verify", "host"))
+    @pytest.mark.parametrize("required", ("port", "url_prefix", "host"))
     def test_required_http_params_missing_fails(self, http_conn_params, required):
         conn_param_values = http_conn_params["http"]
         _ = conn_param_values.pop(required)

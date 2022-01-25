@@ -11,16 +11,26 @@ The garden service is responsible for:
 """
 import logging
 from datetime import datetime
-from typing import List
+from typing import List, Optional, Tuple, Union
 
 from brewtils.errors import PluginError
-from brewtils.models import Event, Events, Garden, Operation, System
+from brewtils.models import Event as BrewtilsEvent
+from brewtils.models import Events as BrewtilsEvents
+from brewtils.models import Garden as BrewtilsGarden
+from brewtils.models import Operation as BrewtilsOperation
+from brewtils.models import System as BrewtilsSystem
 from brewtils.specification import _CONNECTION_SPEC
+from marshmallow import ValidationError as MarshmallowValidationError
 from mongoengine import DoesNotExist
 from yapconf import YapconfSpec
 
 import beer_garden.config as config
 import beer_garden.db.api as db
+from beer_garden.db.mongo.models import MongoModel
+from beer_garden.db.schemas.garden_schema import (
+    HttpConnectionParamsSchema,
+    StompConnectionParamsSchema,
+)
 from beer_garden.events import publish, publish_event
 from beer_garden.namespace import get_namespaces
 from beer_garden.systems import get_systems, remove_system
@@ -28,11 +38,11 @@ from beer_garden.systems import get_systems, remove_system
 logger = logging.getLogger(__name__)
 
 
-def get_garden(garden_name: str) -> Garden:
+def get_garden(garden_name: str) -> BrewtilsGarden:
     """Retrieve an individual Garden
 
     Args:
-        garden_name: The name of Garden
+        garden_name: The name of the Garden
 
     Returns:
         The Garden
@@ -41,10 +51,12 @@ def get_garden(garden_name: str) -> Garden:
     if garden_name == config.get("garden.name"):
         return local_garden()
 
-    return db.query_unique(Garden, name=garden_name, raise_missing=True)
+    return clean_garden_connection_params(
+        db.query_unique(BrewtilsGarden, name=garden_name, raise_missing=True)
+    )
 
 
-def get_gardens(include_local: bool = True) -> List[Garden]:
+def get_gardens(include_local: bool = True) -> List[BrewtilsGarden]:
     """Retrieve list of all Gardens
 
     Args:
@@ -56,7 +68,12 @@ def get_gardens(include_local: bool = True) -> List[Garden]:
     """
     # This is necessary for as long as local_garden is still needed. See the notes
     # there for more detail.
-    gardens = db.query(Garden, filter_params={"connection_type__ne": "LOCAL"})
+    gardens = list(
+        map(
+            clean_garden_connection_params,
+            db.query(BrewtilsGarden, filter_params={"connection_type__ne": "LOCAL"}),
+        )
+    )
 
     if include_local:
         gardens += [local_garden()]
@@ -64,7 +81,7 @@ def get_gardens(include_local: bool = True) -> List[Garden]:
     return gardens
 
 
-def local_garden(all_systems: bool = False) -> Garden:
+def local_garden(all_systems: bool = False) -> BrewtilsGarden:
     """Get the local garden definition
 
     Args:
@@ -79,7 +96,9 @@ def local_garden(all_systems: bool = False) -> Garden:
     # keep a LOCAL garden's embedded list of systems up to date currently, so we instead
     # build the list of systems (and namespaces) at call time. Once the System
     # relationship has been refactored, the need for this function should go away.
-    garden: Garden = db.query_unique(Garden, connection_type="LOCAL")
+    garden: BrewtilsGarden = clean_garden_connection_params(
+        db.query_unique(BrewtilsGarden, connection_type="LOCAL")
+    )
 
     filter_params = {}
     if not all_systems:
@@ -91,8 +110,8 @@ def local_garden(all_systems: bool = False) -> Garden:
     return garden
 
 
-@publish_event(Events.GARDEN_SYNC)
-def publish_garden(status: str = "RUNNING") -> Garden:
+@publish_event(BrewtilsEvents.GARDEN_SYNC)
+def publish_garden(status: str = "RUNNING") -> BrewtilsGarden:
     """Get the local garden, publishing a GARDEN_SYNC event
 
     Args:
@@ -108,7 +127,7 @@ def publish_garden(status: str = "RUNNING") -> Garden:
     return garden
 
 
-def update_garden_config(garden: Garden) -> Garden:
+def update_garden_config(garden: BrewtilsGarden) -> BrewtilsGarden:
     """Update Garden configuration parameters
 
     Args:
@@ -118,7 +137,7 @@ def update_garden_config(garden: Garden) -> Garden:
         The Garden updated
 
     """
-    db_garden = db.query_unique(Garden, id=garden.id)
+    db_garden = db.query_unique(BrewtilsGarden, id=garden.id)
     db_garden.connection_params = garden.connection_params
     db_garden.connection_type = garden.connection_type
     db_garden.status = "INITIALIZING"
@@ -126,7 +145,7 @@ def update_garden_config(garden: Garden) -> Garden:
     return update_garden(db_garden)
 
 
-def update_garden_status(garden_name: str, new_status: str) -> Garden:
+def update_garden_status(garden_name: str, new_status: str) -> BrewtilsGarden:
     """Update an Garden status.
 
     Will also update the status_info heartbeat.
@@ -138,14 +157,14 @@ def update_garden_status(garden_name: str, new_status: str) -> Garden:
     Returns:
         The updated Garden
     """
-    garden = db.query_unique(Garden, name=garden_name)
+    garden = db.query_unique(BrewtilsGarden, name=garden_name)
     garden.status = new_status
     garden.status_info["heartbeat"] = datetime.utcnow()
 
     return update_garden(garden)
 
 
-@publish_event(Events.GARDEN_REMOVED)
+@publish_event(BrewtilsEvents.GARDEN_REMOVED)
 def remove_garden(garden_name: str) -> None:
     """Remove a garden
 
@@ -216,17 +235,7 @@ def get_connection_defaults():
     return new_defaults
 
 
-@publish_event(Events.GARDEN_CREATED)
-def create_garden(garden: Garden) -> Garden:
-    """Create a new Garden
-
-    Args:
-        garden: The Garden to create
-
-    Returns:
-        The created Garden
-
-    """
+def _create_basic_connection_defaults():
     config_map = {
         "bg_host": "host",
         "bg_port": "port",
@@ -238,19 +247,199 @@ def create_garden(garden: Garden) -> Garden:
     }
     defaults = get_connection_defaults()
 
-    if garden.connection_params is None:
-        garden.connection_params = {}
-    garden.connection_params.setdefault("http", {})
+    return {config_map[key]: defaults[key] for key in config_map}
 
-    for key in config_map:
-        garden.connection_params["http"].setdefault(config_map[key], defaults[key])
 
+def _validate_http_connection_params(conn_params):
+    return HttpConnectionParamsSchema(strict=True).load(conn_params).data
+
+
+def _validate_stomp_connection_params(conn_params):
+    return StompConnectionParamsSchema(strict=True).load(conn_params).data
+
+
+def _clean_or_default_http_connection_params(
+    params: Optional[dict], garden_name: str
+) -> Tuple[dict, List[str]]:
+    messages = []
+
+    if params is None:
+        params = _create_basic_connection_defaults()
+        messages.append(
+            "Used defaults for all values of http connection params "
+            f"for garden {garden_name}"
+        )
+    else:
+        try:
+            params = _validate_http_connection_params(params)
+        except MarshmallowValidationError:
+            # something's wrong with these http conn params; try to salvage some of them
+            try:
+                params = _validate_http_connection_params(
+                    {
+                        **_create_basic_connection_defaults(),
+                        **params,
+                    }
+                )
+                messages.append(
+                    "Used defaults for some values of http connection params "
+                    f"for garden {garden_name}"
+                )
+            except MarshmallowValidationError:
+                # can't salvage, so give it defaults rather than completely fail
+                params = _create_basic_connection_defaults()
+                messages.append(
+                    "Used defaults for all values of http connection params "
+                    f"for garden {garden_name}"
+                )
+
+    return params, messages
+
+
+def _clean_or_empty_http_connection_params(
+    params: Optional[dict], garden_name: str
+) -> Tuple[dict, List[str]]:
+    messages = []
+
+    if params is None:
+        params = {}
+    else:
+        try:
+            params = _validate_http_connection_params(params)
+        except MarshmallowValidationError:
+            params = {}
+            messages.append(
+                f"Unable to parse http connection params for garden {garden_name}"
+            )
+    return params, messages
+
+
+def _clean_or_empty_stomp_connection_params(
+    params: Optional[dict], garden_name: str
+) -> Tuple[dict, List[str]]:
+    messages = []
+
+    if params is None:
+        params = {}
+        messages.append(f"No stomp connection params provided for garden {garden_name}")
+    else:
+        try:
+            params = _validate_stomp_connection_params(params)
+        except MarshmallowValidationError:
+            params = {}
+            messages.append(
+                "Unable to parse stomp connection params for garden " f"{garden_name}"
+            )
+
+    return params, messages
+
+
+def clean_garden_connection_params(
+    garden: Optional[Union[BrewtilsGarden, MongoModel]]
+) -> Optional[Union[BrewtilsGarden, MongoModel]]:
+    """Return a Garden with its connection parameters sanitized.
+
+    If a Garden (as either a Brewtils model or a Mongo model) is passed that has
+    connection parameters that will fail validation, those parameters are replaced by
+    ones that won't.
+
+    Args:
+        garden: The Garden to clean
+
+    Returns:
+        The Garden with cleaned connection parameters
+    """
+    if garden is None:
+        return garden
+
+    messages = []
+    conn_params = (
+        garden.connection_params if hasattr(garden, "connection_params") else {}
+    ) or {}
+
+    if garden.connection_type is not None and garden.connection_type == "LOCAL":
+        if conn_params != {}:
+            logger.debug("Removed connection params for local garden")
+            garden.connection_params = {}
+        return garden
+
+    garden_name = garden.name
+    new_stomp_params, stomp_msgs = _clean_or_empty_stomp_connection_params(
+        conn_params.get("stomp", None), garden_name
+    )
+
+    if garden.connection_type == "HTTP":
+        new_http_params, http_msgs = _clean_or_default_http_connection_params(
+            conn_params.get("http", None), garden_name
+        )
+        conn_params["http"] = new_http_params
+
+        if new_stomp_params != {}:
+            conn_params["stomp"] = new_stomp_params
+        else:
+            old_stomp = conn_params.pop("stomp", None)
+
+            if old_stomp is not None:
+                messages.append(
+                    "Removed unparseable stomp connnection params from garden "
+                    f"{garden_name}"
+                )
+    else:  # must be STOMP
+        if "stomp" not in conn_params or new_stomp_params == {}:
+            # if you tell us the type is STOMP, but don't provide stomp conn params,
+            # we'll force it to be HTTP rather than fail
+            messages.append(f"Forcing connection type to HTTP for garden {garden_name}")
+            garden.connection_type = "HTTP"
+
+            new_http_params, http_msgs = _clean_or_default_http_connection_params(
+                conn_params.get("http", None), garden_name
+            )
+            conn_params["http"] = new_http_params
+
+            if "stomp" in conn_params:
+                _ = conn_params.pop("stomp")
+        else:
+            conn_params["stomp"] = new_stomp_params
+
+            new_http_params, http_msgs = _clean_or_empty_http_connection_params(
+                conn_params.get("http", None), garden_name
+            )
+
+            if "http" in conn_params and new_http_params == {}:
+                messages.append(
+                    "Removed unparseable http configuration params from "
+                    f"garden {garden_name}"
+                )
+                _ = conn_params.pop("http")
+            elif new_http_params != {}:
+                conn_params["http"] = new_http_params
+
+    garden.connection_params = conn_params
+
+    for msg in messages + http_msgs + stomp_msgs:
+        logger.debug(msg)
+
+    return garden
+
+
+@publish_event(BrewtilsEvents.GARDEN_CREATED)
+def create_garden(garden: BrewtilsGarden) -> BrewtilsGarden:
+    """Create a new Garden
+
+    Args:
+        garden: The Garden to create
+
+    Returns:
+        The created Garden
+
+    """
+    garden = clean_garden_connection_params(garden)
     garden.status_info["heartbeat"] = datetime.utcnow()
 
     return db.create(garden)
 
 
-def garden_add_system(system: System, garden_name: str) -> Garden:
+def garden_add_system(system: BrewtilsSystem, garden_name: str) -> BrewtilsGarden:
     """Add a System to a Garden
 
     Args:
@@ -277,8 +466,8 @@ def garden_add_system(system: System, garden_name: str) -> Garden:
     return update_garden(garden)
 
 
-@publish_event(Events.GARDEN_UPDATED)
-def update_garden(garden: Garden) -> Garden:
+@publish_event(BrewtilsEvents.GARDEN_UPDATED)
+def update_garden(garden: BrewtilsGarden) -> BrewtilsGarden:
     """Update a Garden
 
     Args:
@@ -287,7 +476,8 @@ def update_garden(garden: Garden) -> Garden:
     Returns:
         The updated Garden
     """
-    return db.update(garden)
+
+    return db.update(clean_garden_connection_params(garden))
 
 
 def garden_sync(sync_target: str = None):
@@ -321,7 +511,7 @@ def garden_sync(sync_target: str = None):
             logger.debug(f"About to create sync operation for garden {garden.name}")
 
             route(
-                Operation(
+                BrewtilsOperation(
                     operation_type="GARDEN_SYNC",
                     target_garden_name=garden.name,
                     kwargs={"sync_target": garden.name},
@@ -343,10 +533,10 @@ def handle_event(event):
     if event.garden != config.get("garden.name"):
 
         if event.name in (
-            Events.GARDEN_STARTED.name,
-            Events.GARDEN_UPDATED.name,
-            Events.GARDEN_STOPPED.name,
-            Events.GARDEN_SYNC.name,
+            BrewtilsEvents.GARDEN_STARTED.name,
+            BrewtilsEvents.GARDEN_UPDATED.name,
+            BrewtilsEvents.GARDEN_STOPPED.name,
+            BrewtilsEvents.GARDEN_SYNC.name,
         ):
             # Only do stuff for direct children
             if event.payload.name == event.garden:
@@ -372,15 +562,15 @@ def handle_event(event):
                 # Publish update events for UI to dynamically load changes for Systems
                 for system in garden.systems:
                     publish(
-                        Event(
-                            name=Events.SYSTEM_UPDATED.name,
+                        BrewtilsEvent(
+                            name=BrewtilsEvents.SYSTEM_UPDATED.name,
                             garden=event.garden,
                             payload_type="System",
                             payload=system,
                         )
                     )
 
-    elif event.name == Events.GARDEN_UNREACHABLE.name:
+    elif event.name == BrewtilsEvents.GARDEN_UNREACHABLE.name:
         target_garden = get_garden(event.payload.target_garden_name)
 
         if target_garden.status not in [
@@ -390,7 +580,7 @@ def handle_event(event):
             "ERROR",
         ]:
             update_garden_status(event.payload.target_garden_name, "UNREACHABLE")
-    elif event.name == Events.GARDEN_ERROR.name:
+    elif event.name == BrewtilsEvents.GARDEN_ERROR.name:
         target_garden = get_garden(event.payload.target_garden_name)
 
         if target_garden.status not in [
@@ -400,7 +590,7 @@ def handle_event(event):
             "ERROR",
         ]:
             update_garden_status(event.payload.target_garden_name, "ERROR")
-    elif event.name == Events.GARDEN_NOT_CONFIGURED.name:
+    elif event.name == BrewtilsEvents.GARDEN_NOT_CONFIGURED.name:
         target_garden = get_garden(event.payload.target_garden_name)
 
         if target_garden.status == "NOT_CONFIGURED":

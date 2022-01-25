@@ -818,6 +818,20 @@ class Garden(MongoModel, Document):
         ],
     }
 
+    def save(self, *args, **kwargs):
+        # Before saving the Garden, remove connection parameters that are entirely empty
+        if self.connection_params is not None and self.connection_params != {}:
+            for field in ["http", "stomp"]:
+                value = self.connection_params.get(field, None)
+                if value is not None and value == {}:
+                    _ = self.connection_params.pop(field)
+        return super().save(*args, **kwargs)
+
+    def pre_serialize(self):
+        from beer_garden.garden import clean_garden_connection_params
+
+        self.connection_params = clean_garden_connection_params(self).connection_params
+
     def deep_save(self):
         if self.connection_type != "LOCAL":
             self._update_associated_systems()
